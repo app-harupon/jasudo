@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#5b5bd6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ジャスドゥー">
+<title>ジャスドゥー — 迷わないTodo</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-title-row">
+    <h1 class="app-title">ジャスドゥー</h1>
+    <div class="header-btns">
+      <button id="account-btn" class="icon-btn" title="メールで連携">🔗</button>
+      <button id="help-btn" class="icon-btn" title="チュートリアルを見る">？</button>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-view="matrix">やることリスト</button>
+    <button class="tab" data-view="calendar">カレンダー</button>
+    <button class="tab" data-view="timer">タイマー</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ========== やることリスト ========== -->
+  <section id="view-matrix" class="view active">
+    <h2 class="list-title">やることリスト <span class="sub">(優先度が高い順)</span></h2>
+    <div id="todo-list" class="todo-list"></div>
+    <p class="hint">上から順番にやればOK。並び順(重要度×締切)は内部で自動計算しています。</p>
+  </section>
+
+  <!-- ========== カレンダー ========== -->
+  <section id="view-calendar" class="view">
+    <div class="tray card">
+      <div class="tray-head">未スケジュール <span class="tray-hint">(日付へドラッグ / タップで日付設定)</span></div>
+      <div id="tray-list" class="tray-list"></div>
+    </div>
+
+    <div class="cal-mode-switch">
+      <button class="mode-btn" data-mode="month">月</button>
+      <button class="mode-btn" data-mode="week">週</button>
+      <button class="mode-btn" data-mode="day">日</button>
+    </div>
+
+    <button id="cal-add-event" class="ghost-btn add-event-btn">＋ 予定を追加</button>
+
+    <div class="cal-head">
+      <button id="cal-prev" class="icon-btn">‹</button>
+      <div id="cal-title" class="cal-title"></div>
+      <button id="cal-next" class="icon-btn">›</button>
+      <button id="cal-today" class="ghost-btn">今日</button>
+    </div>
+
+    <div id="cal-month-view">
+      <div class="cal-weekdays">
+        <div class="wd sun">日</div><div class="wd">月</div><div class="wd">火</div>
+        <div class="wd">水</div><div class="wd">木</div><div class="wd">金</div><div class="wd sat">土</div>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+    </div>
+
+    <div id="cal-timegrid" class="timegrid-wrap hidden"></div>
+
+    <div class="today-panel card">
+      <h2>今日やる <span class="sub">(優先度順 — 上から順にやるだけ)</span></h2>
+      <div id="today-list"></div>
+    </div>
+  </section>
+
+  <!-- ========== タイマー ========== -->
+  <section id="view-timer" class="view">
+
+    <div id="timer-setup" class="card setup-card">
+      <h2>セグメントタイマー</h2>
+
+      <label class="field-label">タスク</label>
+      <select id="t-task"></select>
+
+      <label class="field-label">集中時間(基準)</label>
+      <div class="seg" id="t-focus"></div>
+
+      <label class="field-label">休憩時間 <span class="sub">(集中時間の1/3まで)</span></label>
+      <div class="seg" id="t-break"></div>
+
+      <label class="field-label">合計所要時間(分)</label>
+      <input id="t-total" type="number" min="1" step="5" value="30">
+
+      <div id="t-preview" class="preview"></div>
+
+      <button id="t-start" class="primary big">▶ スタート</button>
+    </div>
+
+    <div id="timer-run" class="card run-card hidden">
+      <div id="run-phase" class="phase-label">集中</div>
+      <div id="run-task-name" class="run-task-name"></div>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 200 200">
+          <circle class="ring-bg" cx="100" cy="100" r="88"></circle>
+          <circle id="ring-fg" class="ring-fg" cx="100" cy="100" r="88"></circle>
+        </svg>
+        <div class="ring-center">
+          <div id="run-time">00:00</div>
+          <div id="run-sub"></div>
+        </div>
+      </div>
+
+      <div id="run-memo-view" class="memo-view"></div>
+
+      <div id="run-overview-box" class="overview-box hidden">
+        <label class="field-label">この時間でやる範囲(一言で)</label>
+        <input id="run-memo" maxlength="16" placeholder="例: 見積もり作成" autocomplete="off">
+        <div id="memo-count" class="memo-count">0/16</div>
+      </div>
+
+      <div id="run-dots" class="dots"></div>
+
+      <div class="run-controls">
+        <button id="run-pause" class="ghost-btn">⏸ 一時停止</button>
+        <button id="run-abort" class="danger-ghost">中止</button>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<button id="fab-add" title="タスクを追加">＋</button>
+
+<!-- ========== モーダル ========== -->
+<div id="modal-backdrop" class="backdrop hidden"></div>
+
+<div id="modal-task" class="modal hidden">
+  <h2 id="task-form-title">タスクを追加</h2>
+
+  <label class="field-label">タスク名</label>
+  <input id="f-name" maxlength="40" placeholder="例: 企画書ドラフト作成">
+
+  <label class="field-label">締切日時</label>
+  <input id="f-deadline" type="datetime-local">
+  <div id="f-urgency-note" class="note"></div>
+
+  <label class="field-label">合計所要時間</label>
+  <div class="seg" id="f-duration-type">
+    <button data-dt="fixed">時間を指定</button>
+    <button data-dt="unknown">不明</button>
+    <button data-dt="vague">不明瞭</button>
+  </div>
+  <div id="f-total-row">
+    <input id="f-total" type="number" min="1" step="5" value="30">
+  </div>
+  <div id="f-vague-row" class="hidden">
+    <div class="vague-range-row">
+      <input id="f-total-min" type="number" min="1" step="5" value="60">
+      <span>分 〜</span>
+      <input id="f-total-max" type="number" min="1" step="5" value="120">
+      <span>分</span>
+    </div>
+    <div class="note">例:1時間(60分)から2時間(120分)など、おおよその幅で登録できます</div>
+  </div>
+  <div id="f-unknown-row" class="hidden note">所要時間なしで登録します(タイマー開始時に決めることもできます)。</div>
+
+  <div class="toggle-row">
+    <span>重要度おまかせ提案(半自動)</span>
+    <label class="switch"><input id="f-semiauto" type="checkbox"><span class="slider"></span></label>
+  </div>
+
+  <div id="f-stage-row" class="hidden">
+    <label class="field-label">プロジェクトの段階</label>
+    <div class="seg" id="f-stage">
+      <button data-stage="early">序盤</button>
+      <button data-stage="mid">中盤</button>
+      <button data-stage="late">終盤</button>
+    </div>
+  </div>
+
+  <label class="field-label">重要度 <span class="sub">迷ったら下の具体例を参考に</span></label>
+  <div class="seg" id="f-importance">
+    <button data-imp="high">高</button>
+    <button data-imp="mid">中</button>
+    <button data-imp="low">低</button>
+  </div>
+  <div id="f-importance-desc" class="importance-desc"></div>
+  <div id="f-suggest-note" class="note"></div>
+
+  <div class="modal-actions">
+    <button id="f-cancel" class="ghost-btn">キャンセル</button>
+    <button id="f-save" class="primary">保存</button>
+  </div>
+</div>
+
+<div id="modal-event" class="modal hidden">
+  <h2 id="event-form-title">予定を追加</h2>
+
+  <label class="field-label">タイトル</label>
+  <input id="e-title" maxlength="40" placeholder="例: 歯医者">
+
+  <label class="field-label">日付</label>
+  <input id="e-date" type="date">
+
+  <div class="toggle-row">
+    <span>終日</span>
+    <label class="switch"><input id="e-allday" type="checkbox"><span class="slider"></span></label>
+  </div>
+
+  <div id="e-time-row">
+    <label class="field-label">時刻</label>
+    <input id="e-time" type="time" step="300">
+    <label class="field-label">所要時間(分)</label>
+    <input id="e-minutes" type="number" min="5" step="5" value="30">
+  </div>
+
+  <label class="field-label">メモ <span class="sub">(任意)</span></label>
+  <input id="e-memo" maxlength="60" placeholder="任意のメモ">
+
+  <div class="modal-actions">
+    <button id="e-delete" class="danger-ghost push-left hidden">削除</button>
+    <button id="e-cancel" class="ghost-btn">キャンセル</button>
+    <button id="e-save" class="primary">保存</button>
+  </div>
+</div>
+
+<div id="modal-account" class="modal hidden">
+  <h2>メールで連携</h2>
+  <p class="note">メールアドレスを登録すると、他の端末でも同じタスクを見られるようになります。パスワードは不要です — 届いたメールのリンクをタップするだけでログインできます。</p>
+  <div id="acct-unconfigured-note" class="note hidden">この配信にはまだ連携先が設定されていません(js/firebase-config.js を参照)。設定するまではこの端末だけのローカル動作になります。</div>
+
+  <div id="acct-signed-out">
+    <label class="field-label">メールアドレス</label>
+    <input id="acct-email" type="email" placeholder="you@example.com" autocomplete="email">
+    <button id="acct-send" class="primary big">ログインリンクを送る</button>
+    <div id="acct-sent-note" class="note hidden">メールを送信しました。届いたリンクをタップしてください。</div>
+  </div>
+
+  <div id="acct-signed-in" class="hidden">
+    <label class="field-label">連携中のメールアドレス</label>
+    <div id="acct-email-display" class="acct-email-display"></div>
+    <div id="acct-sync-status" class="note"></div>
+    <button id="acct-signout" class="danger-ghost big">連携を解除</button>
+  </div>
+
+  <div class="modal-actions">
+    <button id="acct-close" class="ghost-btn">閉じる</button>
+  </div>
+</div>
+
+<div id="modal-detail" class="modal hidden"></div>
+
+<div id="modal-check" class="modal check-modal hidden">
+  <h2>このタスク、終わった?</h2>
+  <div class="check-buttons">
+    <button id="check-done" class="primary big">終わった!</button>
+    <button id="check-notyet" class="ghost-btn big">まだ</button>
+  </div>
+  <div id="check-remain" class="hidden">
+    <label class="field-label">残り何分かかりそう?</label>
+    <input id="check-minutes" type="number" min="1" step="5" value="15">
+    <div id="check-preview" class="preview"></div>
+    <button id="check-continue" class="primary">再分割して続ける</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<!-- ========== チュートリアル(実際に操作しながら覚える・いつでもスキップ可) ========== -->
+<div id="tut-overlay" class="tut-overlay hidden">
+  <div id="tut-dim-top" class="tut-dim"></div>
+  <div id="tut-dim-bottom" class="tut-dim"></div>
+  <div id="tut-dim-left" class="tut-dim"></div>
+  <div id="tut-dim-right" class="tut-dim"></div>
+  <div id="tut-ring" class="tut-ring hidden"></div>
+  <div id="tut-card" class="tut-card">
+    <div class="tut-card-top">
+      <span id="tut-progress" class="tut-progress"></span>
+      <button id="tut-skip" class="tut-skip">スキップ</button>
+    </div>
+    <div id="tut-text" class="tut-text"></div>
+    <div id="tut-hint" class="tut-hint hidden"></div>
+    <div class="tut-card-actions">
+      <button id="tut-next" class="primary">次へ</button>
+    </div>
+  </div>
+</div>
+
+<!-- メール連携(複数端末同期)。読み込みに失敗しても他の機能には影響しない -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
+<script src="js/store.js?v=10"></script>
+<script src="js/ui.js?v=10"></script>
+<script src="js/matrix.js?v=10"></script>
+<script src="js/calendar.js?v=10"></script>
+<script src="js/timer.js?v=10"></script>
+<script src="js/tutorial.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
+<script src="js/firebase-config.js?v=10"></script>
+<script src="js/sync.js?v=10"></script>
+</body>
+</html>

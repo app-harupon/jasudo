@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Firebaseコンソール → Firestore Database → ルール タブに、この内容を貼り付けて公開してください。
+// 各ユーザーは自分の(サインインしたuidと一致する)ドキュメントだけ読み書きできます。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /syncData/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
