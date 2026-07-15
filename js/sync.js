@@ -15,6 +15,7 @@ const Sync = (() => {
   let unsubscribeSnapshot = null;
   let pushTimer = null;
   let receivingRemote = false;
+  let lastSyncedAt = null; // 送信・受信いずれかが成功するたび更新(連携状態を目に見えるようにするため)
   const statusListeners = [];
 
   function isConfigured() {
@@ -88,6 +89,7 @@ const Sync = (() => {
         Store.replaceSettings(data.settings || {});
         App.refresh();
         receivingRemote = false;
+        lastSyncedAt = new Date();
         notifyStatus();
       },
       () => UI.toast("同期でエラーが発生しました")
@@ -116,7 +118,7 @@ const Sync = (() => {
       settings: Store.settings,
       updatedAt: new Date().toISOString(),
     })
-      .then(() => notifyStatus())
+      .then(() => { lastSyncedAt = new Date(); notifyStatus(); })
       .catch(() => UI.toast("同期に失敗しました(オフラインの可能性があります)"));
   }
 
@@ -124,8 +126,12 @@ const Sync = (() => {
   function notifyStatus() { statusListeners.forEach((fn) => fn(user)); }
   function onStatusChange(fn) { statusListeners.push(fn); }
   function currentUser() { return user; }
+  function getLastSyncedAt() { return lastSyncedAt; }
 
-  return { init, isConfigured, sendLoginLink, signOut, schedulePush, onStatusChange, currentUser };
+  return {
+    init, isConfigured, sendLoginLink, signOut, schedulePush, onStatusChange, currentUser,
+    getLastSyncedAt,
+  };
 })();
 
 /* ============================================================
@@ -136,6 +142,21 @@ const Sync = (() => {
   const modalAccount = $("#modal-account");
   const signedOutBox = $("#acct-signed-out");
   const signedInBox = $("#acct-signed-in");
+  const accountDot = $("#account-dot");
+  let liveInterval = null;
+
+  // 「たった今」「3分前」のような相対時刻(連携できているかを一目でわかるようにするため)
+  function formatRelativeTime(date) {
+    if (!date) return "まだ同期していません";
+    const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (sec < 5) return "たった今";
+    if (sec < 60) return `${sec}秒前`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}分前`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}時間前`;
+    return `${Math.floor(hr / 24)}日前`;
+  }
 
   function render(user) {
     const configured = Sync.isConfigured();
@@ -143,9 +164,11 @@ const Sync = (() => {
     signedInBox.classList.toggle("hidden", !user);
     $("#acct-unconfigured-note").classList.toggle("hidden", configured);
     $("#acct-send").disabled = !configured;
+    accountDot.classList.toggle("hidden", !user);
     if (user) {
       $("#acct-email-display").textContent = user.email;
-      $("#acct-sync-status").textContent = "この端末は連携中です。他の端末でも同じメールアドレスでログインすると、タスクが自動で同期されます。";
+      $("#acct-sync-status").textContent = "✔ この端末は連携中です。他の端末でも同じメールアドレスでログインすると、タスクが自動で同期されます。";
+      $("#acct-last-synced").textContent = `最終同期: ${formatRelativeTime(Sync.getLastSyncedAt())}`;
     }
   }
 
@@ -154,8 +177,14 @@ const Sync = (() => {
     $("#acct-email").value = "";
     render(Sync.currentUser());
     UI.openModal(modalAccount);
+    // モーダルを開いている間は「最終同期」の相対時刻を生きたまま更新する
+    clearInterval(liveInterval);
+    liveInterval = setInterval(() => render(Sync.currentUser()), 5000);
   });
-  $("#acct-close").addEventListener("click", () => UI.closeModal());
+  $("#acct-close").addEventListener("click", () => {
+    UI.closeModal();
+    clearInterval(liveInterval);
+  });
 
   $("#acct-send").addEventListener("click", () => {
     const email = $("#acct-email").value.trim();

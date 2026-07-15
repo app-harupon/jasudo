@@ -74,6 +74,15 @@ input:focus, select:focus { outline: 2px solid var(--accent); border-color: tran
 }
 .app-title-row { display: flex; align-items: center; justify-content: space-between; }
 .header-btns { display: flex; gap: 6px; }
+
+/* 連携(同期)状態バッジ */
+#account-btn { position: relative; }
+.status-dot {
+  position: absolute; top: 2px; right: 2px; width: 9px; height: 9px;
+  border-radius: 50%; background: #10b981; border: 2px solid var(--card);
+}
+.status-dot.hidden { display: none; }
+.sync-badge { display: inline-block; margin-top: 8px; background: #d1fae5; color: #047857; }
 .app-title { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
 .tabs { display: flex; gap: 4px; margin-top: 10px; }
 .tab {

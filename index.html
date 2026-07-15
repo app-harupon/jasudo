@@ -20,7 +20,7 @@
   <div class="app-title-row">
     <h1 class="app-title">ジャスドゥー</h1>
     <div class="header-btns">
-      <button id="account-btn" class="icon-btn" title="メールで連携">🔗</button>
+      <button id="account-btn" class="icon-btn" title="メールで連携">🔗<span id="account-dot" class="status-dot hidden"></span></button>
       <button id="help-btn" class="icon-btn" title="チュートリアルを見る">？</button>
     </div>
   </div>
@@ -246,6 +246,7 @@
     <label class="field-label">連携中のメールアドレス</label>
     <div id="acct-email-display" class="acct-email-display"></div>
     <div id="acct-sync-status" class="note"></div>
+    <div id="acct-last-synced" class="badge sync-badge"></div>
     <button id="acct-signout" class="danger-ghost big">連携を解除</button>
   </div>
 
@@ -297,14 +298,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=10"></script>
-<script src="js/ui.js?v=10"></script>
-<script src="js/matrix.js?v=10"></script>
-<script src="js/calendar.js?v=10"></script>
-<script src="js/timer.js?v=10"></script>
-<script src="js/tutorial.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
-<script src="js/firebase-config.js?v=10"></script>
-<script src="js/sync.js?v=10"></script>
+<script src="js/store.js?v=11"></script>
+<script src="js/ui.js?v=11"></script>
+<script src="js/matrix.js?v=11"></script>
+<script src="js/calendar.js?v=11"></script>
+<script src="js/timer.js?v=11"></script>
+<script src="js/tutorial.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
+<script src="js/firebase-config.js?v=11"></script>
+<script src="js/sync.js?v=11"></script>
 </body>
 </html>
