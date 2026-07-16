@@ -79,11 +79,28 @@ const Timer = (() => {
     } catch (e) { /* noop */ }
   }
   function beepFor(phase) {
+    if (!Store.settings.soundEnabled) return;
     if (phase === "overview") beep(660, 0.12);
     else if (phase === "focus") { beep(880, 0.12); beep(880, 0.12, 0.2); }
     else if (phase === "break") beep(520, 0.25);
     else if (phase === "check") { beep(880, 0.12); beep(1040, 0.12, 0.18); beep(1320, 0.2, 0.36); }
   }
+
+  /* ---------- サウンドON/OFF切り替え(セットアップ画面・実行画面の両方に表示) ---------- */
+  function syncSoundUI() {
+    const on = Store.settings.soundEnabled !== false;
+    $("#t-sound").checked = on;
+    const btn = $("#run-sound-toggle");
+    btn.textContent = on ? "🔊" : "🔇";
+    btn.classList.toggle("muted", !on);
+  }
+  function setSoundEnabled(on) {
+    Store.setSetting("soundEnabled", on);
+    if (on) ensureAudio(); // ONにした操作自体がユーザー操作なので、ここで音を有効化しておく
+    syncSoundUI();
+  }
+  $("#t-sound").addEventListener("change", () => setSoundEnabled($("#t-sound").checked));
+  $("#run-sound-toggle").addEventListener("click", () => setSoundEnabled(!(Store.settings.soundEnabled !== false)));
 
   /* ============================================================
    * セットアップ画面
@@ -112,6 +129,7 @@ const Timer = (() => {
 
     renderFocusButtons();
     renderBreakButtons();
+    syncSoundUI();
     if (preferTaskId && Store.getTask(preferTaskId)) {
       $("#t-total").value = Store.getTask(preferTaskId).totalMinutes;
     }
@@ -399,6 +417,7 @@ const Timer = (() => {
 
   function renderRun() {
     if (!session) return;
+    syncSoundUI();
     const info = PHASE_INFO[session.phase];
     runEl.classList.remove("phase-overview", "phase-focus", "phase-break");
     runEl.classList.add(info.cls);

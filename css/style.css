@@ -307,7 +307,9 @@ main { max-width: 760px; margin: 0 auto; padding: 16px; }
 .ghost-btn.big { width: 100%; padding: 15px; font-size: 16px; }
 
 /* 実行画面 */
-.run-card { text-align: center; padding: 24px 16px; }
+.run-card { text-align: center; padding: 24px 16px; position: relative; }
+.run-sound-btn { position: absolute; top: 16px; right: 16px; opacity: 0.55; }
+.run-sound-btn.muted { opacity: 0.9; }
 .phase-label {
   display: inline-block; padding: 6px 22px; border-radius: 999px;
   font-size: 14px; font-weight: 800; letter-spacing: 0.15em;
