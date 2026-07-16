@@ -246,13 +246,19 @@ const UI = (() => {
           <span class="k">実行日</span>
           <input type="date" id="d-date" value="${t.scheduledDate || ""}">
         </div>
-        <div class="detail-row">
-          <span class="k">開始時刻</span>
-          <input type="time" id="d-time" step="300" value="${t.scheduledTime || ""}" ${t.scheduledDate ? "" : "disabled"}>
+        <div class="toggle-row">
+          <span>終日</span>
+          <label class="switch"><input id="d-allday" type="checkbox" ${t.scheduledTime ? "" : "checked"}><span class="slider"></span></label>
         </div>
-        <div class="detail-row">
-          <span class="k">終了時刻</span>
-          <input type="time" id="d-end-time" step="300" value="${t.scheduledTime ? Store.addMinutesToTime(t.scheduledTime, t.totalMinutes) : ""}" ${t.scheduledTime ? "" : "disabled"}>
+        <div id="d-time-row" class="${t.scheduledTime ? "" : "hidden"}">
+          <div class="detail-row">
+            <span class="k">開始時刻</span>
+            <input type="time" id="d-time" step="300" value="${t.scheduledTime || ""}" ${t.scheduledDate ? "" : "disabled"}>
+          </div>
+          <div class="detail-row">
+            <span class="k">終了時刻</span>
+            <input type="time" id="d-end-time" step="300" value="${t.scheduledTime ? Store.addMinutesToTime(t.scheduledTime, t.totalMinutes) : ""}" ${t.scheduledTime ? "" : "disabled"}>
+          </div>
         </div>
       `}
       <div class="detail-actions">
@@ -317,6 +323,18 @@ const UI = (() => {
       toast(newDate ? "実行日を設定しました" : "実行日を外しました");
       App.refresh();
       openTaskDetail(id);
+    });
+    // 終日:ONにすると時刻欄を隠し、時刻が入っていれば外す(予定の「終日」と同じ考え方)
+    const alldayCheckbox = modalDetail.querySelector("#d-allday");
+    if (alldayCheckbox) alldayCheckbox.addEventListener("change", (e) => {
+      const isAllDay = e.target.checked;
+      modalDetail.querySelector("#d-time-row").classList.toggle("hidden", isAllDay);
+      if (isAllDay && t.scheduledTime) {
+        Store.updateTask(id, { scheduledTime: null });
+        toast("終日に設定しました");
+        App.refresh();
+        openTaskDetail(id);
+      }
     });
     const timeInput = modalDetail.querySelector("#d-time");
     if (timeInput) timeInput.addEventListener("change", (e) => {
