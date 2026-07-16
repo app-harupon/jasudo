@@ -1,6 +1,6 @@
 /* ============================================================
  * timer.js — セグメントタイマー
- * 流れ: 俯瞰(1分固定) → 集中 → 休憩 → … → 完了確認 → 再分割ループ
+ * 流れ: 確認(1分固定) → 集中 → 休憩 → … → 完了確認 → 再分割ループ
  * ============================================================ */
 const Timer = (() => {
   const $ = (sel) => document.querySelector(sel);
@@ -121,7 +121,7 @@ const Timer = (() => {
     const segs = Store.splitMinutes(total, Store.settings.focusMin);
     $("#t-preview").innerHTML =
       segs.map((m) => `<span class="seg-pill">${m}分</span>`).join('<span>+</span>') +
-      `<span class="sub" style="width:100%">${segs.length}セグメント / 合計${total}分(各セグメント冒頭に俯瞰1分)</span>`;
+      `<span class="sub" style="width:100%">${segs.length}セグメント / 合計${total}分(各セグメント冒頭に確認1分)</span>`;
   }
 
   $("#t-total").addEventListener("input", updatePreview);
@@ -310,14 +310,14 @@ const Timer = (() => {
     session.segments = session.segments.concat(Store.splitMinutes(remain, session.focusMin));
     session.idx++;
     UI.closeModal();
-    enterPhase("overview"); // 俯瞰タイムから自動で継続
+    enterPhase("overview"); // 確認タイムから自動で継続
   });
 
   /* ============================================================
    * 実行画面の描画
    * ============================================================ */
   const PHASE_INFO = {
-    overview: { label: "俯瞰", cls: "phase-overview" },
+    overview: { label: "確認", cls: "phase-overview" },
     focus:    { label: "集中", cls: "phase-focus" },
     break:    { label: "休憩", cls: "phase-break" },
     check:    { label: "確認", cls: "phase-focus" },
@@ -336,7 +336,7 @@ const Timer = (() => {
     $("#run-sub").textContent =
       `セグメント ${Math.min(session.idx + 1, session.segments.length)}/${session.segments.length}(${session.segments[session.idx]}分)`;
 
-    // 俯瞰タイム中だけメモ入力を表示
+    // 確認タイム中だけメモ入力を表示
     $("#run-overview-box").classList.toggle("hidden", session.phase !== "overview");
     $("#run-memo-view").textContent =
       session.phase === "focus" && session.memo ? `▶ ${session.memo}` : "";
@@ -367,7 +367,7 @@ const Timer = (() => {
     $("#ring-fg").style.strokeDashoffset = String(RING_LEN * (1 - ratio));
   }
 
-  /* ---------- 俯瞰メモ(16文字制限・都度上書き) ---------- */
+  /* ---------- 確認メモ(16文字制限・都度上書き) ---------- */
   function updateMemoCount() {
     const v = $("#run-memo").value;
     const el = $("#memo-count");
