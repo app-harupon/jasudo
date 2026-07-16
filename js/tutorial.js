@@ -31,7 +31,7 @@ const Tutorial = (() => {
   function buildSteps() {
     return [
       {
-        text: "ジャスドゥーへようこそ🎉\n実際に操作しながら、使い方を覚えましょう。",
+        text: "Just doへようこそ🎉\n実際に操作しながら、使い方を覚えましょう。",
       },
       {
         before: () => { App.switchView("matrix"); UI.closeModal(); },

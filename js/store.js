@@ -63,7 +63,8 @@ const Store = (() => {
   let categories = [];
   let settings = {
     focusMin: 25, breakMin: 5, semiAuto: false, calendarView: "month", tutorialDone: false,
-    categoryFilter: [], // 空配列 = フィルターなし(すべて表示)
+    categoryFilter: [],      // 空配列 = フィルターなし(すべて表示)
+    statusFilter: "pending", // pending(未完了) | done(完了) | all(すべて)
   };
 
   /* ---------- 永続化 ---------- */

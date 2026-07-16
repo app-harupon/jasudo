@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pon-todo-cache-v6';
+const CACHE_NAME = 'pon-todo-cache-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './js/categories.js',
   './js/matrix.js',
   './js/calendar.js',
+  './js/touch-drag.js',
   './js/timer.js',
   './js/done.js',
   './js/tutorial.js',

@@ -27,6 +27,7 @@ const Calendar = (() => {
     return { type: raw.slice(0, i), id: raw.slice(i + 1) };
   }
   function makeDroppable(el, onDrop) {
+    el._dropHandler = onDrop; // タッチ操作(touch-drag.js)からも同じ処理を呼べるように保持しておく
     el.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
@@ -287,9 +288,10 @@ const Calendar = (() => {
       makeDroppable(track, (drag, e) => {
         const rect = track.getBoundingClientRect();
         const rawMin = ((e.clientY - rect.top) / ROW_H) * 60 + START_HOUR * 60;
+        // 30分ごとの枠に吸い寄せる
         const snapped = Math.max(
           START_HOUR * 60,
-          Math.min(END_HOUR * 60 - 15, Math.round(rawMin / 15) * 15)
+          Math.min(END_HOUR * 60 - 30, Math.round(rawMin / 30) * 30)
         );
         const snappedTime = Store.minutesToTime(snapped);
         if (drag.type === "e") Store.updateEvent(drag.id, { date: key, time: snappedTime });

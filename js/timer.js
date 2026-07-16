@@ -42,7 +42,7 @@ const Timer = (() => {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const label = PHASE_INFO[phase] ? PHASE_INFO[phase].label : "";
     try {
-      new Notification("ジャスドゥー", {
+      new Notification("Just do", {
         body: `${label}の時間になりました`,
         icon: "icons/icon-192.png",
         tag: "jasudo-timer",

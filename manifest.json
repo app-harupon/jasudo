@@ -1,6 +1,6 @@
 {
-  "name": "ジャスドゥー — 迷わないTodo",
-  "short_name": "ジャスドゥー",
+  "name": "Just do — 迷わないTodo",
+  "short_name": "Just do",
   "description": "スコアリング×マトリクス×カレンダー×セグメントタイマーで、何をやるか迷わせないTodoアプリ",
   "start_url": "./index.html",
   "scope": "./",

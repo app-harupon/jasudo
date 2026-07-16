@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ジャスドゥー">
-<title>ジャスドゥー — 迷わないTodo</title>
+<meta name="apple-mobile-web-app-title" content="Just do">
+<title>Just do — 迷わないTodo</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -18,7 +18,7 @@
 
 <header class="app-header">
   <div class="app-title-row">
-    <h1 class="app-title">ジャスドゥー</h1>
+    <h1 class="app-title">Just do</h1>
     <div class="header-btns">
       <button id="install-btn" class="icon-btn hidden" title="ホーム画面に追加">📲</button>
       <button id="menu-btn" class="icon-btn" title="データの読み込み・書き出し">📁</button>
@@ -39,6 +39,7 @@
   <!-- ========== やることリスト ========== -->
   <section id="view-matrix" class="view active">
     <h2 class="list-title">やることリスト <span class="sub">(優先度が高い順)</span></h2>
+    <div id="matrix-status-filter" class="cat-filter"></div>
     <div id="matrix-cat-filter" class="cat-filter hidden"></div>
     <div id="todo-list" class="todo-list"></div>
     <p class="hint">上から順番にやればOK。並び順(重要度×締切)は内部で自動計算しています。</p>
@@ -372,17 +373,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=18"></script>
-<script src="js/ui.js?v=18"></script>
-<script src="js/categories.js?v=18"></script>
-<script src="js/matrix.js?v=18"></script>
-<script src="js/calendar.js?v=18"></script>
-<script src="js/timer.js?v=18"></script>
-<script src="js/done.js?v=18"></script>
-<script src="js/tutorial.js?v=18"></script>
-<script src="js/data-tools.js?v=18"></script>
-<script src="js/app.js?v=18"></script>
-<script src="js/firebase-config.js?v=18"></script>
-<script src="js/sync.js?v=18"></script>
+<script src="js/store.js?v=19"></script>
+<script src="js/ui.js?v=19"></script>
+<script src="js/categories.js?v=19"></script>
+<script src="js/matrix.js?v=19"></script>
+<script src="js/calendar.js?v=19"></script>
+<script src="js/touch-drag.js?v=19"></script>
+<script src="js/timer.js?v=19"></script>
+<script src="js/done.js?v=19"></script>
+<script src="js/tutorial.js?v=19"></script>
+<script src="js/data-tools.js?v=19"></script>
+<script src="js/app.js?v=19"></script>
+<script src="js/firebase-config.js?v=19"></script>
+<script src="js/sync.js?v=19"></script>
 </body>
 </html>

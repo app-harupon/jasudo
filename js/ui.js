@@ -516,7 +516,7 @@ const UI = (() => {
     chip.draggable = !isRecurring && !doneOn;
     chip.dataset.id = task.id;
     if (task.categoryId) chip.style.cssText += Categories.borderStyle(task.categoryId);
-    const label = (isRecurring ? "🔁 " : "") + (showTime && time ? `${time} ${task.name}` : task.name);
+    const label = (doneOn ? "✅ " : isRecurring ? "🔁 " : "") + (showTime && time ? `${time} ${task.name}` : task.name);
     chip.textContent = label;
     chip.title = label;
     chip.addEventListener("click", () => openTaskDetail(task.id));
@@ -551,7 +551,7 @@ const UI = (() => {
     row.innerHTML = `
       ${rank !== null ? `<div class="todo-rank">${rank}</div>` : ""}
       <div class="todo-main">
-        <div class="todo-name">${escapeHtml(task.name)}${tag ? ` <span class="sub">(${escapeHtml(tag)})</span>` : ""}</div>
+        <div class="todo-name">${doneOn ? "✅ " : ""}${escapeHtml(task.name)}${tag ? ` <span class="sub">(${escapeHtml(tag)})</span>` : ""}</div>
         <div class="todo-badges">
           <span class="badge imp-${task.importance}">重要度 ${impLabel}</span>
           ${task.categoryId ? Categories.badge(task.categoryId) : ""}
@@ -592,7 +592,7 @@ const UI = (() => {
     block.dataset.id = task.id;
     const end = Store.addMinutesToTime(time, task.totalMinutes);
     block.innerHTML = `
-      <div class="tg-block-name">${isRecurring ? "🔁 " : ""}${escapeHtml(task.name)}</div>
+      <div class="tg-block-name">${doneOn ? "✅ " : isRecurring ? "🔁 " : ""}${escapeHtml(task.name)}</div>
       <div class="tg-block-time">${time}〜${end}</div>
     `;
     block.title = `${task.name}(${time}〜${end})`;
