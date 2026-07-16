@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pon-todo-cache-v3';
+const CACHE_NAME = 'pon-todo-cache-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './js/calendar.js',
   './js/timer.js',
   './js/tutorial.js',
+  './js/data-tools.js',
   './js/app.js',
   './js/firebase-config.js',
   './js/sync.js',

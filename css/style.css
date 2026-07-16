@@ -432,6 +432,26 @@ main { max-width: 760px; margin: 0 auto; padding: 16px; }
 .duration-edit-row { display: flex; align-items: center; gap: 8px; }
 .duration-edit-row .badge { flex: 0 0 auto; }
 
+/* データメニュー(エクスポート/インポート/議事録取り込み) */
+.menu-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.ghost-btn.wide { width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; }
+
+/* 議事録からの日程抽出 */
+#ext-input {
+  width: 100%; min-height: 130px; resize: vertical; font-family: inherit;
+  font-size: 14px; line-height: 1.5; padding: 10px 12px; margin-bottom: 10px;
+  border: 1.5px solid var(--line); border-radius: 10px; background: #fff; color: var(--text);
+}
+.ext-list { display: flex; flex-direction: column; gap: 8px; max-height: 42vh; overflow-y: auto; margin: 10px 0; }
+.ext-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  background: var(--bg); border-radius: 10px; padding: 8px;
+}
+.ext-row .ext-check { flex: 0 0 auto; width: 18px; height: 18px; }
+.ext-row .ext-title { flex: 1 1 140px; min-width: 0; }
+.ext-row .ext-date, .ext-row .ext-time { flex: 0 0 auto; width: auto; font-size: 12px; padding: 6px 8px; }
+.ext-empty { font-size: 13px; color: var(--sub); padding: 10px 4px; }
+
 /* 完了確認モーダル */
 .check-modal { text-align: center; }
 .check-modal h2 { margin-bottom: 16px; }

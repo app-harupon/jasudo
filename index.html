@@ -20,6 +20,7 @@
   <div class="app-title-row">
     <h1 class="app-title">ジャスドゥー</h1>
     <div class="header-btns">
+      <button id="menu-btn" class="icon-btn" title="データの読み込み・書き出し">📁</button>
       <button id="account-btn" class="icon-btn" title="メールで連携">🔗<span id="account-dot" class="status-dot hidden"></span></button>
       <button id="help-btn" class="icon-btn" title="チュートリアルを見る">？</button>
     </div>
@@ -230,6 +231,43 @@
   </div>
 </div>
 
+<div id="modal-menu" class="modal hidden">
+  <h2>データ</h2>
+  <div class="menu-list">
+    <button id="menu-export" class="ghost-btn wide">📤 ファイルに保存(エクスポート)</button>
+    <button id="menu-import" class="ghost-btn wide">📥 ファイルから読み込む(インポート)</button>
+    <button id="menu-extract" class="ghost-btn wide">📋 議事録から日程を取り込む</button>
+  </div>
+  <div class="modal-actions">
+    <button id="menu-close" class="ghost-btn">閉じる</button>
+  </div>
+</div>
+<input type="file" id="import-file-input" accept="application/json,.json" class="hidden">
+
+<div id="modal-extract" class="modal hidden">
+  <h2>議事録から日程を取り込む</h2>
+  <p class="note">日付や時刻を含むテキストを貼り付けて「解析する」を押すと、行ごとに日程の候補を拾い出します。完璧な解析ではないので、追加前に内容を確認・修正してください。</p>
+
+  <label class="field-label">テキスト</label>
+  <textarea id="ext-input" placeholder="例:&#10;7/20(月) 14:00〜15:00 定例MTG&#10;7月22日までに見積もり送付&#10;来週水曜 10時 顧客訪問"></textarea>
+  <button id="ext-parse" class="primary">解析する</button>
+
+  <div id="ext-results" class="hidden">
+    <label class="field-label">見つかった候補 <span class="sub">(チェックを外すと追加されません。内容は編集できます)</span></label>
+    <div id="ext-list" class="ext-list"></div>
+    <label class="field-label">追加する形式</label>
+    <div class="seg" id="ext-add-type">
+      <button data-type="task" class="on">タスク</button>
+      <button data-type="event">予定</button>
+    </div>
+    <button id="ext-confirm" class="primary big">選択した項目を追加する</button>
+  </div>
+
+  <div class="modal-actions">
+    <button id="ext-close" class="ghost-btn">閉じる</button>
+  </div>
+</div>
+
 <div id="modal-account" class="modal hidden">
   <h2>メールで連携</h2>
   <p class="note">メールアドレスを登録すると、他の端末でも同じタスクを見られるようになります。パスワードは不要です — 届いたメールのリンクをタップするだけでログインできます。</p>
@@ -298,14 +336,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/matrix.js?v=15"></script>
-<script src="js/calendar.js?v=15"></script>
-<script src="js/timer.js?v=15"></script>
-<script src="js/tutorial.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
-<script src="js/firebase-config.js?v=15"></script>
-<script src="js/sync.js?v=15"></script>
+<script src="js/store.js?v=16"></script>
+<script src="js/ui.js?v=16"></script>
+<script src="js/matrix.js?v=16"></script>
+<script src="js/calendar.js?v=16"></script>
+<script src="js/timer.js?v=16"></script>
+<script src="js/tutorial.js?v=16"></script>
+<script src="js/data-tools.js?v=16"></script>
+<script src="js/app.js?v=16"></script>
+<script src="js/firebase-config.js?v=16"></script>
+<script src="js/sync.js?v=16"></script>
 </body>
 </html>
