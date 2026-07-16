@@ -44,6 +44,7 @@ const UI = (() => {
   let selectedImp = "mid";      // 選択中の重要度
   let selectedStage = "mid";    // 選択中の段階
   let selectedDurationType = "fixed"; // fixed | unknown | vague
+  let selectedCategoryId = null; // 選択中のカテゴリ
   let userOverrode = false;     // 提案をユーザーが上書きしたか
 
   function openTaskForm(task = null) {
@@ -59,11 +60,13 @@ const UI = (() => {
     $("#f-semiauto").checked = Store.settings.semiAuto;
     selectedImp = task ? task.importance : "mid";
     selectedStage = task ? (task.stage || "mid") : "mid";
+    selectedCategoryId = task ? (task.categoryId || null) : null;
     syncStageRow();
     renderDurationTypeButtons();
     syncDurationRows();
     renderImpButtons();
     renderStageButtons();
+    renderCategoryPicker();
     updateImportanceDesc();
     updateUrgencyNote();
     updateSuggestion();
@@ -73,6 +76,13 @@ const UI = (() => {
 
   function syncStageRow() {
     $("#f-stage-row").classList.toggle("hidden", !$("#f-semiauto").checked);
+  }
+
+  function renderCategoryPicker() {
+    Categories.renderPicker($("#f-category"), selectedCategoryId, (id) => {
+      selectedCategoryId = id;
+      renderCategoryPicker();
+    });
   }
 
   function renderDurationTypeButtons() {
@@ -197,6 +207,7 @@ const UI = (() => {
       durationMax: selectedDurationType === "vague" ? Math.max(Number($("#f-total-min").value) || 60, Number($("#f-total-max").value) || 120) : null,
       importance: selectedImp,
       stage: selectedStage,
+      categoryId: selectedCategoryId,
     };
     if (editingId) {
       Store.updateTask(editingId, data);
@@ -222,6 +233,7 @@ const UI = (() => {
     const u = Store.urgencyOf(t.deadline);
 
     const badges = [`<span class="badge imp-${t.importance}">重要度: ${Store.IMPORTANCE[t.importance].label}</span>`];
+    if (t.categoryId) badges.push(Categories.badge(t.categoryId));
     if (t.recurrence) {
       const wdLabel = t.recurrence.weekdays.map((w) => Store.WEEKDAY_LABELS[w]).join("・");
       badges.push(`<span class="badge recur">🔁 定時: ${wdLabel} ${t.recurrence.time}</span>`);
@@ -503,6 +515,7 @@ const UI = (() => {
     chip.className = "chip" + (doneOn ? " done" : "") + (isRecurring ? " recurring" : "");
     chip.draggable = !isRecurring && !doneOn;
     chip.dataset.id = task.id;
+    if (task.categoryId) chip.style.cssText += Categories.borderStyle(task.categoryId);
     const label = (isRecurring ? "🔁 " : "") + (showTime && time ? `${time} ${task.name}` : task.name);
     chip.textContent = label;
     chip.title = label;
@@ -541,6 +554,7 @@ const UI = (() => {
         <div class="todo-name">${escapeHtml(task.name)}${tag ? ` <span class="sub">(${escapeHtml(tag)})</span>` : ""}</div>
         <div class="todo-badges">
           <span class="badge imp-${task.importance}">重要度 ${impLabel}</span>
+          ${task.categoryId ? Categories.badge(task.categoryId) : ""}
           ${u !== null ? `<span class="badge urg">${Store.URGENCY_LABELS[u]}</span>` : ""}
           ${scheduleBadge}
         </div>
@@ -573,6 +587,7 @@ const UI = (() => {
     block.className = `tg-block imp-${task.importance}` + (isRecurring ? " recurring" : "") + (doneOn ? " done" : "");
     block.style.top = `${top}px`;
     block.style.height = `${height}px`;
+    if (task.categoryId) block.style.cssText += Categories.borderStyle(task.categoryId);
     block.draggable = !isRecurring;
     block.dataset.id = task.id;
     const end = Store.addMinutesToTime(time, task.totalMinutes);
@@ -598,6 +613,7 @@ const UI = (() => {
     chip.className = "chip event";
     chip.draggable = true;
     chip.dataset.id = ev.id;
+    if (ev.categoryId) chip.style.cssText += Categories.borderStyle(ev.categoryId);
     const label = (ev.time ? `${ev.time} ` : "") + `📅 ${ev.title}`;
     chip.textContent = label;
     chip.title = label;
@@ -615,6 +631,7 @@ const UI = (() => {
     block.className = "tg-block event";
     block.style.top = `${top}px`;
     block.style.height = `${height}px`;
+    if (ev.categoryId) block.style.cssText += Categories.borderStyle(ev.categoryId);
     block.draggable = true;
     block.dataset.id = ev.id;
     const end = Store.addMinutesToTime(ev.time, ev.minutes);
@@ -639,6 +656,14 @@ const UI = (() => {
    * ============================================================ */
   const modalEvent = $("#modal-event");
   let editingEventId = null;
+  let selectedEventCategoryId = null;
+
+  function renderEventCategoryPicker() {
+    Categories.renderPicker($("#e-category"), selectedEventCategoryId, (id) => {
+      selectedEventCategoryId = id;
+      renderEventCategoryPicker();
+    });
+  }
 
   function openEventForm(ev = null, presetDate = null) {
     editingEventId = ev ? ev.id : null;
@@ -649,6 +674,8 @@ const UI = (() => {
     $("#e-time").value = ev && ev.time ? ev.time : "09:00";
     $("#e-minutes").value = ev && ev.minutes ? ev.minutes : 30;
     $("#e-memo").value = ev ? ev.memo : "";
+    selectedEventCategoryId = ev ? (ev.categoryId || null) : null;
+    renderEventCategoryPicker();
     syncEventTimeRow();
     $("#e-delete").classList.toggle("hidden", !ev);
     openModal(modalEvent);
@@ -673,6 +700,7 @@ const UI = (() => {
       time: allDay ? null : ($("#e-time").value || "09:00"),
       minutes: allDay ? null : Math.max(5, Number($("#e-minutes").value) || 30),
       memo: $("#e-memo").value.trim(),
+      categoryId: selectedEventCategoryId,
     };
     if (editingEventId) {
       Store.updateEvent(editingEventId, data);

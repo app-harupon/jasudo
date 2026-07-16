@@ -37,12 +37,15 @@
   <!-- ========== やることリスト ========== -->
   <section id="view-matrix" class="view active">
     <h2 class="list-title">やることリスト <span class="sub">(優先度が高い順)</span></h2>
+    <div id="matrix-cat-filter" class="cat-filter hidden"></div>
     <div id="todo-list" class="todo-list"></div>
     <p class="hint">上から順番にやればOK。並び順(重要度×締切)は内部で自動計算しています。</p>
   </section>
 
   <!-- ========== カレンダー ========== -->
   <section id="view-calendar" class="view">
+    <div id="cal-cat-filter" class="cat-filter hidden"></div>
+
     <div class="tray card">
       <div class="tray-head">未スケジュール <span class="tray-hint">(日付へドラッグ / タップで日付設定)</span></div>
       <div id="tray-list" class="tray-list"></div>
@@ -147,6 +150,9 @@
   <label class="field-label">タスク名</label>
   <input id="f-name" maxlength="40" placeholder="例: 企画書ドラフト作成">
 
+  <label class="field-label">カテゴリ <span class="sub">(任意)</span></label>
+  <div class="seg cat-seg" id="f-category"></div>
+
   <label class="field-label">締切日時</label>
   <input id="f-deadline" type="datetime-local">
   <div id="f-urgency-note" class="note"></div>
@@ -206,6 +212,9 @@
   <label class="field-label">タイトル</label>
   <input id="e-title" maxlength="40" placeholder="例: 歯医者">
 
+  <label class="field-label">カテゴリ <span class="sub">(任意)</span></label>
+  <div class="seg cat-seg" id="e-category"></div>
+
   <label class="field-label">日付</label>
   <input id="e-date" type="date">
 
@@ -234,6 +243,7 @@
 <div id="modal-menu" class="modal hidden">
   <h2>データ</h2>
   <div class="menu-list">
+    <button id="menu-categories" class="ghost-btn wide">🏷️ カテゴリを管理</button>
     <button id="menu-export" class="ghost-btn wide">📤 ファイルに保存(エクスポート)</button>
     <button id="menu-import" class="ghost-btn wide">📥 ファイルから読み込む(インポート)</button>
     <button id="menu-extract" class="ghost-btn wide">📋 議事録から日程を取り込む</button>
@@ -243,6 +253,21 @@
   </div>
 </div>
 <input type="file" id="import-file-input" accept="application/json,.json" class="hidden">
+
+<div id="modal-categories" class="modal hidden">
+  <h2>カテゴリを管理</h2>
+  <p class="note">タスク・予定を「仕事」「個人」などに分類して、色で見分けたり絞り込んだりできます。</p>
+  <div id="cat-list" class="cat-list"></div>
+
+  <label class="field-label">新しいカテゴリ</label>
+  <input id="cat-new-name" maxlength="20" placeholder="例: 仕事">
+  <div class="color-swatch-row" id="cat-new-color"></div>
+  <button id="cat-add" class="primary big">追加する</button>
+
+  <div class="modal-actions">
+    <button id="cat-close" class="ghost-btn">閉じる</button>
+  </div>
+</div>
 
 <div id="modal-extract" class="modal hidden">
   <h2>議事録から日程を取り込む</h2>
@@ -336,15 +361,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=16"></script>
-<script src="js/ui.js?v=16"></script>
-<script src="js/matrix.js?v=16"></script>
-<script src="js/calendar.js?v=16"></script>
-<script src="js/timer.js?v=16"></script>
-<script src="js/tutorial.js?v=16"></script>
-<script src="js/data-tools.js?v=16"></script>
-<script src="js/app.js?v=16"></script>
-<script src="js/firebase-config.js?v=16"></script>
-<script src="js/sync.js?v=16"></script>
+<script src="js/store.js?v=17"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/categories.js?v=17"></script>
+<script src="js/matrix.js?v=17"></script>
+<script src="js/calendar.js?v=17"></script>
+<script src="js/timer.js?v=17"></script>
+<script src="js/tutorial.js?v=17"></script>
+<script src="js/data-tools.js?v=17"></script>
+<script src="js/app.js?v=17"></script>
+<script src="js/firebase-config.js?v=17"></script>
+<script src="js/sync.js?v=17"></script>
 </body>
 </html>

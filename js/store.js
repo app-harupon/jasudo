@@ -4,8 +4,12 @@
 const Store = (() => {
   const LS_TASKS = "ponTodo.tasks";
   const LS_EVENTS = "ponTodo.events";
+  const LS_CATEGORIES = "ponTodo.categories";
   const LS_SETTINGS = "ponTodo.settings";
   const LS_SESSION = "ponTodo.session";
+
+  // カテゴリ(セクション)に使える色パレット
+  const CATEGORY_COLORS = ["#5b5bd6", "#f59e0b", "#10b981", "#e5484d", "#0ea5e9", "#a855f7", "#64748b", "#ec4899"];
 
   /* --- 重要度(3段階・自己申告) ---
    * score は内部の並び替えにのみ使用し、画面上には数値を出さない。
@@ -56,7 +60,11 @@ const Store = (() => {
 
   let tasks = [];
   let events = [];
-  let settings = { focusMin: 25, breakMin: 5, semiAuto: false, calendarView: "month", tutorialDone: false };
+  let categories = [];
+  let settings = {
+    focusMin: 25, breakMin: 5, semiAuto: false, calendarView: "month", tutorialDone: false,
+    categoryFilter: [], // 空配列 = フィルターなし(すべて表示)
+  };
 
   /* ---------- 永続化 ---------- */
   function load() {
@@ -69,12 +77,17 @@ const Store = (() => {
       if (Array.isArray(ev)) events = ev;
     } catch (e) { /* 破損時は初期化 */ }
     try {
+      const c = JSON.parse(localStorage.getItem(LS_CATEGORIES));
+      if (Array.isArray(c)) categories = c;
+    } catch (e) { /* 破損時は初期化 */ }
+    try {
       const s = JSON.parse(localStorage.getItem(LS_SETTINGS));
       if (s && typeof s === "object") settings = Object.assign(settings, s);
     } catch (e) { /* noop */ }
   }
   function saveTasks() { localStorage.setItem(LS_TASKS, JSON.stringify(tasks)); }
   function saveEvents() { localStorage.setItem(LS_EVENTS, JSON.stringify(events)); }
+  function saveCategories() { localStorage.setItem(LS_CATEGORIES, JSON.stringify(categories)); }
   function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
 
   function saveSession(session) {
@@ -104,6 +117,7 @@ const Store = (() => {
       durationMax: durationType === "vague" ? Math.max(Number(data.durationMin) || 60, Number(data.durationMax) || 120) : null,
       importance: data.importance || "mid",  // high | mid | low
       stage: data.stage || "mid",            // early | mid | late(半自動用・暫定)
+      categoryId: data.categoryId || null,   // カテゴリ(セクション)のid or null(未分類)
       scheduledDate: null,                   // "YYYY-MM-DD" or null
       scheduledTime: null,                   // "HH:MM" or null(週/日ビューでの開始時刻)
       recurrence: null,                      // { weekdays: [0-6], time: "HH:MM" } or null(定時タスク)
@@ -165,6 +179,7 @@ const Store = (() => {
       durationMax: null,
       importance: original.importance,
       stage: original.stage,
+      categoryId: original.categoryId || null,
       scheduledDate: null,
       scheduledTime: null,
       recurrence: null,
@@ -295,6 +310,7 @@ const Store = (() => {
       date: data.date,                     // "YYYY-MM-DD"(必須)
       time: data.time || null,             // "HH:MM" or null(終日予定)
       minutes: data.time ? (data.minutes || 30) : null,
+      categoryId: data.categoryId || null, // カテゴリ(セクション)のid or null(未分類)
       memo: data.memo || "",
       createdAt: new Date().toISOString(),
     };
@@ -316,6 +332,51 @@ const Store = (() => {
   function getEvent(id) { return events.find((x) => x.id === id) || null; }
   function getEvents() { return events.slice(); }
 
+  /* ---------- カテゴリ(セクション)CRUD ----------
+   * タスク・予定を「仕事」「個人」などに分類し、色で見分けられるようにする。
+   * 削除すると、そのカテゴリを使っていたタスク・予定は未分類(categoryId: null)に戻る。
+   */
+  function addCategory(data) {
+    const cat = {
+      id: uid(),
+      name: data.name,
+      color: data.color || CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length],
+      createdAt: new Date().toISOString(),
+    };
+    categories.push(cat);
+    saveCategories();
+    return cat;
+  }
+  function updateCategory(id, patch) {
+    const c = categories.find((x) => x.id === id);
+    if (!c) return null;
+    Object.assign(c, patch);
+    saveCategories();
+    return c;
+  }
+  function deleteCategory(id) {
+    categories = categories.filter((x) => x.id !== id);
+    let affected = 0;
+    tasks.forEach((t) => { if (t.categoryId === id) { t.categoryId = null; affected++; } });
+    events.forEach((e) => { if (e.categoryId === id) { e.categoryId = null; affected++; } });
+    saveCategories();
+    saveTasks();
+    saveEvents();
+    // 使っていたタスク・予定は未分類に戻すだけで、フィルターにも残さない
+    settings.categoryFilter = (settings.categoryFilter || []).filter((cid) => cid !== id);
+    saveSettings();
+    return affected;
+  }
+  function getCategory(id) { return categories.find((x) => x.id === id) || null; }
+  function getCategories() { return categories.slice(); }
+
+  // 現在のカテゴリフィルターに一致するか(フィルター未設定なら常にtrue = すべて表示)
+  function matchesCategoryFilter(categoryId) {
+    const filter = settings.categoryFilter;
+    if (!filter || filter.length === 0) return true;
+    return filter.includes(categoryId);
+  }
+
   /* ---------- 他端末から受信したデータで丸ごと置き換える(メール連携の同期用) ---------- */
   function replaceTasks(newTasks) {
     if (!Array.isArray(newTasks)) return;
@@ -326,6 +387,11 @@ const Store = (() => {
     if (!Array.isArray(newEvents)) return;
     events = newEvents;
     saveEvents();
+  }
+  function replaceCategories(newCategories) {
+    if (!Array.isArray(newCategories)) return;
+    categories = newCategories;
+    saveCategories();
   }
   function replaceSettings(newSettings) {
     if (!newSettings || typeof newSettings !== "object") return;
@@ -436,9 +502,11 @@ const Store = (() => {
 
   return {
     IMPORTANCE, URGENCY_LABELS, FOCUS_OPTIONS, BREAK_OPTIONS, STAGE_LABELS, WEEKDAY_LABELS,
+    CATEGORY_COLORS,
     addTask, updateTask, deleteTask, getTask, getTasks, splitTask,
     addEvent, updateEvent, deleteEvent, getEvent, getEvents,
-    replaceTasks, replaceEvents, replaceSettings,
+    addCategory, updateCategory, deleteCategory, getCategory, getCategories, matchesCategoryFilter,
+    replaceTasks, replaceEvents, replaceCategories, replaceSettings,
     resolveDurationMinutes, durationLabel, setDuration, setEndTime, releaseOverdueTasks,
     urgencyOf, scoreOf, scoreRatio, effectiveScore, suggestImportance,
     splitMinutes, allowedBreaks,

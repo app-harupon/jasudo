@@ -86,6 +86,7 @@ const Sync = (() => {
         receivingRemote = true;
         Store.replaceTasks(data.tasks || []);
         Store.replaceEvents(data.events || []);
+        Store.replaceCategories(data.categories || []);
         Store.replaceSettings(data.settings || {});
         App.refresh();
         receivingRemote = false;
@@ -115,6 +116,7 @@ const Sync = (() => {
     db.collection("syncData").doc(user.uid).set({
       tasks: Store.getTasks(),
       events: Store.getEvents(),
+      categories: Store.getCategories(),
       settings: Store.settings,
       updatedAt: new Date().toISOString(),
     })

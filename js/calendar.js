@@ -10,6 +10,7 @@ const Calendar = (() => {
   const trayList = document.getElementById("tray-list");
   const todayList = document.getElementById("today-list");
   const modeBtns = document.querySelectorAll(".mode-btn");
+  const catFilterEl = document.getElementById("cal-cat-filter");
 
   const ROW_H = 44;       // 1時間あたりの高さ(px)
   const START_HOUR = 0;
@@ -46,6 +47,7 @@ const Calendar = (() => {
     // 定時タスクは曜日×時刻で自動的に出現するため、未スケジュール扱いにはしない
     const list = Store.getTasks()
       .filter((t) => !t.done && !t.scheduledDate && !t.recurrence)
+      .filter((t) => Store.matchesCategoryFilter(t.categoryId))
       .sort((a, b) => Store.scoreOf(b) - Store.scoreOf(a));
     if (list.length === 0) {
       const p = document.createElement("div");
@@ -106,11 +108,12 @@ const Calendar = (() => {
 
     const byDate = {};
     Store.getTasks().forEach((t) => {
-      if (!t.scheduledDate) return;
+      if (!t.scheduledDate || !Store.matchesCategoryFilter(t.categoryId)) return;
       (byDate[t.scheduledDate] = byDate[t.scheduledDate] || []).push(t);
     });
     const eventsByDate = {};
     Store.getEvents().forEach((ev) => {
+      if (!Store.matchesCategoryFilter(ev.categoryId)) return;
       (eventsByDate[ev.date] = eventsByDate[ev.date] || []).push(ev);
     });
 
@@ -143,7 +146,8 @@ const Calendar = (() => {
 
       // その日が対象曜日の定時タスクも合わせて表示する
       const dateObj = new Date(y, m, dayNum);
-      const recurHere = Store.getTasks().filter((t) => Store.occursOnDate(t, dateObj));
+      const recurHere = Store.getTasks()
+        .filter((t) => Store.occursOnDate(t, dateObj) && Store.matchesCategoryFilter(t.categoryId));
       // 優先度順で並ぶ →「今何をやるべきか」が一目でわかる(予定は末尾に追加)
       const taskList = (byDate[key] || []).concat(recurHere)
         .sort((a, b) => Store.effectiveScore(b) - Store.effectiveScore(a));
@@ -228,11 +232,12 @@ const Calendar = (() => {
 
     const byDate = {};
     Store.getTasks().forEach((t) => {
-      if (!t.scheduledDate) return;
+      if (!t.scheduledDate || !Store.matchesCategoryFilter(t.categoryId)) return;
       (byDate[t.scheduledDate] = byDate[t.scheduledDate] || []).push(t);
     });
     const eventsByDate = {};
     Store.getEvents().forEach((ev) => {
+      if (!Store.matchesCategoryFilter(ev.categoryId)) return;
       (eventsByDate[ev.date] = eventsByDate[ev.date] || []).push(ev);
     });
 
@@ -248,7 +253,8 @@ const Calendar = (() => {
       }
 
       const dayTasks = byDate[key] || [];
-      const recurHere = Store.getTasks().filter((t) => Store.occursOnDate(t, d));
+      const recurHere = Store.getTasks()
+        .filter((t) => Store.occursOnDate(t, d) && Store.matchesCategoryFilter(t.categoryId));
       const dayEvents = eventsByDate[key] || [];
 
       // 時刻未設定タスク・終日予定は上部にまとめて表示(ドラッグでブロック化できる)
@@ -321,6 +327,7 @@ const Calendar = (() => {
     const recurToday = Store.getTasks()
       .filter((t) => Store.occursOnDate(t, today) && !Store.isDoneOn(t, tKey));
     const list = scheduled.concat(recurToday)
+      .filter((t) => Store.matchesCategoryFilter(t.categoryId))
       .sort((a, b) => Store.effectiveScore(b) - Store.effectiveScore(a));
 
     if (list.length === 0) {
@@ -337,6 +344,7 @@ const Calendar = (() => {
   }
 
   function render() {
+    Categories.renderFilterBar(catFilterEl);
     modeBtns.forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
     monthView.classList.toggle("hidden", mode !== "month");
     timegrid.classList.toggle("hidden", mode === "month");

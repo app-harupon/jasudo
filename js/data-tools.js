@@ -15,6 +15,7 @@ const DataTools = (() => {
       exportedAt: new Date().toISOString(),
       tasks: Store.getTasks(),
       events: Store.getEvents(),
+      categories: Store.getCategories(),
       settings: Store.settings,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -48,6 +49,7 @@ const DataTools = (() => {
       if (!confirm(`タスク${taskCount}件・予定${eventCount}件を読み込みます。今のデータは上書きされます。よろしいですか?`)) return;
       Store.replaceTasks(data.tasks);
       Store.replaceEvents(data.events || []);
+      Store.replaceCategories(data.categories || []);
       if (data.settings) Store.replaceSettings(data.settings);
       App.refresh();
       UI.toast("読み込みました");

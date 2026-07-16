@@ -7,8 +7,10 @@
  * ============================================================ */
 const Matrix = (() => {
   const list = document.getElementById("todo-list");
+  const catFilterEl = document.getElementById("matrix-cat-filter");
 
   function render() {
+    Categories.renderFilterBar(catFilterEl);
     list.innerHTML = "";
     const todayKey = Store.todayKey();
     const today = new Date();
@@ -17,6 +19,7 @@ const Matrix = (() => {
       .filter((t) => t.recurrence
         ? Store.occursOnDate(t, today) && !Store.isDoneOn(t, todayKey)
         : !t.done)
+      .filter((t) => Store.matchesCategoryFilter(t.categoryId))
       .sort((a, b) => Store.effectiveScore(b) - Store.effectiveScore(a));
 
     if (tasks.length === 0) {
