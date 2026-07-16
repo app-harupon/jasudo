@@ -195,7 +195,11 @@ const Sync = (() => {
         $("#acct-sent-note").classList.remove("hidden");
         UI.toast("メールを送信しました");
       })
-      .catch(() => UI.toast("送信に失敗しました。設定をご確認ください"))
+      .catch((err) => {
+        // エラーコードをそのまま出す(原因の切り分けをすぐできるようにするため)
+        const code = err && err.code ? err.code : "unknown";
+        UI.toast(`送信に失敗しました(${code})`);
+      })
       .finally(() => { $("#acct-send").disabled = false; });
   });
 
