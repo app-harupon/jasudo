@@ -350,7 +350,9 @@ main { max-width: 760px; margin: 0 auto; padding: 16px; }
 .dot.now { background: var(--accent); animation: pulse 1.2s infinite; }
 @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
 
-.run-controls { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.run-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+.run-controls button { flex: 1 1 auto; min-width: 84px; }
+.run-controls button:disabled { opacity: 0.4; pointer-events: none; }
 
 /* ============ FAB ============ */
 #fab-add {

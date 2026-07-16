@@ -20,6 +20,7 @@
   <div class="app-title-row">
     <h1 class="app-title">ジャスドゥー</h1>
     <div class="header-btns">
+      <button id="install-btn" class="icon-btn hidden" title="ホーム画面に追加">📲</button>
       <button id="menu-btn" class="icon-btn" title="データの読み込み・書き出し">📁</button>
       <button id="account-btn" class="icon-btn" title="メールで連携">🔗<span id="account-dot" class="status-dot hidden"></span></button>
       <button id="help-btn" class="icon-btn" title="チュートリアルを見る">？</button>
@@ -29,6 +30,7 @@
     <button class="tab active" data-view="matrix">やることリスト</button>
     <button class="tab" data-view="calendar">カレンダー</button>
     <button class="tab" data-view="timer">タイマー</button>
+    <button class="tab" data-view="done">完了</button>
   </nav>
 </header>
 
@@ -132,10 +134,19 @@
 
       <div class="run-controls">
         <button id="run-pause" class="ghost-btn">⏸ 一時停止</button>
+        <button id="run-extend" class="ghost-btn">＋延長</button>
+        <button id="run-complete" class="primary">✔ 完了</button>
         <button id="run-abort" class="danger-ghost">中止</button>
       </div>
     </div>
 
+  </section>
+
+  <!-- ========== 完了したタスク ========== -->
+  <section id="view-done" class="view">
+    <h2 class="list-title">完了したタスク</h2>
+    <div id="done-list" class="todo-list"></div>
+    <p class="hint">完了したタスクはカレンダー上にも取り消し線付きで残ります。</p>
   </section>
 </main>
 
@@ -361,16 +372,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=17"></script>
-<script src="js/ui.js?v=17"></script>
-<script src="js/categories.js?v=17"></script>
-<script src="js/matrix.js?v=17"></script>
-<script src="js/calendar.js?v=17"></script>
-<script src="js/timer.js?v=17"></script>
-<script src="js/tutorial.js?v=17"></script>
-<script src="js/data-tools.js?v=17"></script>
-<script src="js/app.js?v=17"></script>
-<script src="js/firebase-config.js?v=17"></script>
-<script src="js/sync.js?v=17"></script>
+<script src="js/store.js?v=18"></script>
+<script src="js/ui.js?v=18"></script>
+<script src="js/categories.js?v=18"></script>
+<script src="js/matrix.js?v=18"></script>
+<script src="js/calendar.js?v=18"></script>
+<script src="js/timer.js?v=18"></script>
+<script src="js/done.js?v=18"></script>
+<script src="js/tutorial.js?v=18"></script>
+<script src="js/data-tools.js?v=18"></script>
+<script src="js/app.js?v=18"></script>
+<script src="js/firebase-config.js?v=18"></script>
+<script src="js/sync.js?v=18"></script>
 </body>
 </html>

@@ -123,6 +123,7 @@ const Store = (() => {
       recurrence: null,                      // { weekdays: [0-6], time: "HH:MM" } or null(定時タスク)
       completedDates: [],                    // 定時タスクの完了済み日付("YYYY-MM-DD"の配列)
       done: false,
+      completedAt: null,                     // 完了した日時(ISO文字列)。完了済みタスク一覧の並び替えに使う
       createdAt: new Date().toISOString(),
     };
     tasks.push(task);
@@ -185,6 +186,7 @@ const Store = (() => {
       recurrence: null,
       completedDates: [],
       done: false,
+      completedAt: null,
       createdAt: new Date().toISOString(),
     }));
     tasks.splice(idx, 1, ...pieces);
@@ -259,6 +261,7 @@ const Store = (() => {
       t.completedDates = Array.from(set);
     } else {
       t.done = !t.done;
+      t.completedAt = t.done ? new Date().toISOString() : null;
     }
     saveTasks();
     return t;
@@ -273,6 +276,7 @@ const Store = (() => {
       t.completedDates = Array.from(set);
     } else {
       t.done = true;
+      t.completedAt = new Date().toISOString();
     }
     saveTasks();
     return t;

@@ -14,6 +14,41 @@ const Timer = (() => {
   let interval = null;
   let phaseTotalMs = 0; // 現フェーズの総時間(リング用)
   let audioCtx = null;
+  let wakeLock = null;
+  let memoPersistTimer = null;
+
+  /* ============================================================
+   * バックグラウンド対応
+   * ・Wake Lock: 実行中は画面をスリープさせない(取れなくても致命的ではない)
+   * ・visibilitychange: タブ/アプリに戻ってきた瞬間に表示とWake Lockを即同期
+   * ・Notification: バックグラウンド中にフェーズが切り替わったら通知する
+   * ============================================================ */
+  async function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+    } catch (e) { /* バッテリー節約モードなどで取得できなくても続行 */ }
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (session && !session.paused && session.phase !== "check") requestWakeLock();
+    tick(); // 戻ってきた瞬間に経過時間を即座に反映する(setIntervalの間隔を待たない)
+  });
+
+  function notifyPhase(phase) {
+    if (!document.hidden) return; // 画面を見ているときはビープ音で十分
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const label = PHASE_INFO[phase] ? PHASE_INFO[phase].label : "";
+    try {
+      new Notification("ジャスドゥー", {
+        body: `${label}の時間になりました`,
+        icon: "icons/icon-192.png",
+        tag: "jasudo-timer",
+      });
+    } catch (e) { /* noop */ }
+  }
 
   /* ============================================================
    * サウンド(WebAudio・素朴なビープ)
@@ -133,6 +168,10 @@ const Timer = (() => {
 
   $("#t-start").addEventListener("click", () => {
     ensureAudio();
+    // バックグラウンド中のフェーズ切り替えを通知できるよう、ここで許可を求めておく
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
     const total = Math.max(1, Number($("#t-total").value) || 30);
     start({
       taskId: $("#t-task").value || null,
@@ -169,6 +208,7 @@ const Timer = (() => {
     };
     setupEl.classList.add("hidden");
     runEl.classList.remove("hidden");
+    requestWakeLock();
     enterPhase("overview");
   }
 
@@ -189,7 +229,7 @@ const Timer = (() => {
     persist();
     renderRun();
     startTick();
-    if (!silent) beepFor(phase);
+    if (!silent) { beepFor(phase); notifyPhase(phase); }
     if (phase === "overview") {
       const memoInput = $("#run-memo");
       memoInput.value = "";
@@ -242,10 +282,12 @@ const Timer = (() => {
       session.endsAt = Date.now() + session.remainMs;
       session.paused = false;
       startTick();
+      requestWakeLock();
     } else {
       session.remainMs = Math.max(0, session.endsAt - Date.now());
       session.paused = true;
       stopTick();
+      releaseWakeLock();
     }
     persist();
     renderRun();
@@ -257,8 +299,34 @@ const Timer = (() => {
     UI.toast("中止しました");
   }
 
+  // タスクを完了として即座に終える(セグメント途中でも「もう終わった」と判断したとき用)
+  function completeNow() {
+    if (!session) return;
+    if (!confirm("このタスクを完了にしますか?")) return;
+    if (session.taskId) Store.markDone(session.taskId, Store.todayKey());
+    endSession();
+    UI.toast("おつかれさま!タスク完了 🎉");
+    App.refresh();
+  }
+
+  // 現在のフェーズを延長する(タスクの合計所要時間の1/3。タスク未選択時は現セグメント長の1/3)
+  function extend() {
+    if (!session || session.phase === "check") return;
+    const task = session.taskId ? Store.getTask(session.taskId) : null;
+    const baseMinutes = task ? task.totalMinutes : (session.segments[session.idx] || session.focusMin);
+    const extendMin = Math.max(1, Math.round(baseMinutes / 3));
+    const extendMs = extendMin * 60000;
+    if (session.paused) session.remainMs += extendMs;
+    else session.endsAt += extendMs;
+    phaseTotalMs += extendMs; // リングの基準も伸ばす(残り時間が100%を超えて表示が壊れないように)
+    persist();
+    renderRun();
+    UI.toast(`${extendMin}分延長しました`);
+  }
+
   function endSession() {
     stopTick();
+    releaseWakeLock();
     session = null;
     Store.saveSession(null);
     UI.closeModal();
@@ -352,6 +420,11 @@ const Timer = (() => {
     });
 
     $("#run-pause").textContent = session.paused ? "▶ 再開" : "⏸ 一時停止";
+    // 完了確認モーダル表示中は、下の操作ボタンは無効化しておく(check-done/check-notyetで進める)
+    const inCheck = session.phase === "check";
+    $("#run-pause").disabled = inCheck;
+    $("#run-extend").disabled = inCheck;
+    $("#run-complete").disabled = inCheck;
 
     const remain = session.paused
       ? session.remainMs
@@ -375,11 +448,17 @@ const Timer = (() => {
     el.classList.toggle("limit", v.length >= 16);
   }
   $("#run-memo").addEventListener("input", () => {
-    session && (session.memo = $("#run-memo").value);
+    if (!session) return;
+    session.memo = $("#run-memo").value;
     updateMemoCount();
+    // 入力の途中経過も少し待ってから保存しておく(タブを閉じても消えないように)
+    clearTimeout(memoPersistTimer);
+    memoPersistTimer = setTimeout(persist, 400);
   });
 
   $("#run-pause").addEventListener("click", togglePause);
+  $("#run-extend").addEventListener("click", extend);
+  $("#run-complete").addEventListener("click", completeNow);
   $("#run-abort").addEventListener("click", abort);
 
   /* ============================================================

@@ -19,6 +19,7 @@ const App = (() => {
   function refresh() {
     Matrix.render();
     Calendar.render();
+    Done.render();
     if (!Timer.isRunning()) Timer.renderSetup();
     if (typeof Sync !== "undefined") Sync.schedulePush();
   }
@@ -35,6 +36,7 @@ const App = (() => {
   /* ---------- 初期化 ---------- */
   Matrix.render();
   Calendar.render();
+  Done.render();
   if (!Timer.restore()) {
     Timer.renderSetup();
   } else {
@@ -50,6 +52,47 @@ const App = (() => {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
   }
+
+  /* ---------- ホーム画面に追加ボタン ---------- */
+  const installBtn = document.getElementById("install-btn");
+  let deferredInstallPrompt = null;
+
+  // Android/Chrome等: ブラウザが「インストール可能」と判断した時にボタンを出す
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    installBtn.classList.remove("hidden");
+  });
+  window.addEventListener("appinstalled", () => {
+    installBtn.classList.add("hidden");
+    deferredInstallPrompt = null;
+  });
+
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // iOSはbeforeinstallpromptが存在しないため、未インストールなら手順を案内するボタンを出しておく
+  if (isIOS && !isStandalone) installBtn.classList.remove("hidden");
+
+  installBtn.addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installBtn.classList.add("hidden");
+    } else if (isIOS) {
+      UI.toast("共有ボタン→「ホーム画面に追加」で入れられます");
+    } else {
+      UI.toast("お使いのブラウザでは追加できませんでした");
+    }
+  });
+
+  // タブを閉じる/離れるときに、実行中のタイマーがあれば一言確認する
+  // (データ自体は操作のたびに保存済みだが、タイマーを離れる意図しない中断を防ぐため)
+  window.addEventListener("beforeunload", (e) => {
+    if (!Timer.isRunning()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
 
   // 初回起動時のみチュートリアルを自動開始(初期描画が落ち着いてから)
   if (!Store.settings.tutorialDone) {
