@@ -59,14 +59,19 @@ const Timer = (() => {
       if (audioCtx.state === "suspended") audioCtx.resume();
     } catch (e) { /* 音なしで続行 */ }
   }
+  // セッション復元後など「スタート」ボタンを押さないまま実行画面にいる場合でも、
+  // 最初に画面に触れた瞬間に音を有効化しておく(ブラウザはユーザー操作なしに音を鳴らせないため)
+  runEl.addEventListener("pointerdown", ensureAudio, { once: false });
   function beep(freq = 880, dur = 0.15, delay = 0) {
     if (!audioCtx) return;
+    // ブラウザがバックグラウンド等で自動的にsuspendしていることがあるので、鳴らす直前に毎回確認する
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     try {
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       o.frequency.value = freq;
       o.type = "sine";
-      g.gain.setValueAtTime(0.18, audioCtx.currentTime + delay);
+      g.gain.setValueAtTime(0.28, audioCtx.currentTime + delay);
       g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + dur);
       o.connect(g).connect(audioCtx.destination);
       o.start(audioCtx.currentTime + delay);
@@ -278,6 +283,7 @@ const Timer = (() => {
   /* ---------- 一時停止・再開・中止 ---------- */
   function togglePause() {
     if (!session || session.phase === "check") return;
+    ensureAudio(); // 再開したセッション(復元直後など)ではまだ音が用意されていないことがあるため
     if (session.paused) {
       session.endsAt = Date.now() + session.remainMs;
       session.paused = false;
