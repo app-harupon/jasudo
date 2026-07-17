@@ -151,13 +151,16 @@ const UI = (() => {
       renderImpButtons(null);
       return;
     }
-    const suggested = Store.suggestImportance({
+    const detail = Store.suggestImportanceDetail({
       deadline: $("#f-deadline").value || null,
       totalMinutes: getFormDurationMinutes(),
       stage: selectedStage,
     });
+    const suggested = detail.result;
     if (!userOverrode) selectedImp = suggested;
-    note.textContent = `提案: ${Store.IMPORTANCE[suggested].label}(タップで上書きできます)`;
+    const breakdown = `緊急度+${detail.urgencyPts} 所要時間+${detail.durationPts} 段階+${detail.stagePts}`;
+    const untilNext = suggested === "high" ? "" : ` (高まであと${4 - detail.pts}点)`;
+    note.innerHTML = `提案: ${Store.IMPORTANCE[suggested].label}(タップで上書きできます)<br><span class="suggest-breakdown">内訳 ${breakdown}${untilNext}</span>`;
     renderImpButtons(suggested);
     updateImportanceDesc();
   }
@@ -316,6 +319,7 @@ const UI = (() => {
       `}
       <div id="d-recur-box" class="inline-box hidden">
         <label class="field-label">曜日(複数選択可)</label>
+        ${t.recurrence ? "" : '<p class="note">今日の曜日は最初から選択済みです。含めたくない場合はタップして外してください。</p>'}
         <div class="seg wd-seg" id="d-recur-wd">
           ${Store.WEEKDAY_LABELS.map((w, i) => `<button data-wd="${i}">${w}</button>`).join("")}
         </div>
@@ -610,13 +614,28 @@ const UI = (() => {
   /* ---------- 共通:予定(イベント)チップ生成(カレンダー用・小さい表示) ---------- */
   function makeEventChip(ev) {
     const chip = document.createElement("div");
-    chip.className = "chip event";
-    chip.draggable = true;
+    chip.className = "chip event" + (ev.done ? " done" : "");
+    chip.draggable = !ev.done;
     chip.dataset.id = ev.id;
     if (ev.categoryId) chip.style.cssText += Categories.borderStyle(ev.categoryId);
     const label = (ev.time ? `${ev.time} ` : "") + `📅 ${ev.title}`;
-    chip.textContent = label;
     chip.title = label;
+
+    const check = document.createElement("span");
+    check.className = "chip-check";
+    check.textContent = ev.done ? "✅" : "☐";
+    check.title = ev.done ? "未完了に戻す" : "完了にする";
+    check.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Store.toggleEventDone(ev.id);
+      App.refresh();
+    });
+    const text = document.createElement("span");
+    text.className = "chip-label";
+    text.textContent = label;
+    chip.appendChild(check);
+    chip.appendChild(text);
+
     chip.addEventListener("click", () => openEventForm(ev));
     chip.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", `e:${ev.id}`);
@@ -628,18 +647,23 @@ const UI = (() => {
   /* ---------- 共通:予定(イベント)の週/日ビュー時間ブロック ---------- */
   function makeEventBlock(ev, { top, height } = {}) {
     const block = document.createElement("div");
-    block.className = "tg-block event";
+    block.className = "tg-block event" + (ev.done ? " done" : "");
     block.style.top = `${top}px`;
     block.style.height = `${height}px`;
     if (ev.categoryId) block.style.cssText += Categories.borderStyle(ev.categoryId);
-    block.draggable = true;
+    block.draggable = !ev.done;
     block.dataset.id = ev.id;
-    const end = Store.addMinutesToTime(ev.time, ev.minutes);
+    const end = ev.endUnknown ? "未定" : Store.addMinutesToTime(ev.time, ev.minutes);
     block.innerHTML = `
-      <div class="tg-block-name">📅 ${escapeHtml(ev.title)}</div>
+      <div class="tg-block-name"><span class="chip-check">${ev.done ? "✅" : "☐"}</span>📅 ${escapeHtml(ev.title)}</div>
       <div class="tg-block-time">${ev.time}〜${end}</div>
     `;
     block.title = `${ev.title}(${ev.time}〜${end})`;
+    block.querySelector(".chip-check").addEventListener("click", (e) => {
+      e.stopPropagation();
+      Store.toggleEventDone(ev.id);
+      App.refresh();
+    });
     block.addEventListener("click", (e) => {
       e.stopPropagation();
       openEventForm(ev);
@@ -672,12 +696,19 @@ const UI = (() => {
     $("#e-date").value = ev ? ev.date : (presetDate || Store.todayKey());
     $("#e-allday").checked = ev ? !ev.time : false;
     $("#e-time").value = ev && ev.time ? ev.time : "09:00";
-    $("#e-minutes").value = ev && ev.minutes ? ev.minutes : 30;
+    $("#e-end-unknown").checked = ev ? !!ev.endUnknown : false;
+    $("#e-end-time").value = ev && ev.time && !ev.endUnknown
+      ? Store.addMinutesToTime(ev.time, ev.minutes || 30)
+      : Store.addMinutesToTime($("#e-time").value, 30);
     $("#e-memo").value = ev ? ev.memo : "";
     selectedEventCategoryId = ev ? (ev.categoryId || null) : null;
     renderEventCategoryPicker();
     syncEventTimeRow();
+    syncEventEndTimeRow();
     $("#e-delete").classList.toggle("hidden", !ev);
+    const doneBtn = $("#e-toggle-done");
+    doneBtn.classList.toggle("hidden", !ev);
+    doneBtn.textContent = ev && ev.done ? "未完了に戻す" : "完了にする";
     openModal(modalEvent);
     setTimeout(() => $("#e-title").focus(), 50);
   }
@@ -685,7 +716,19 @@ const UI = (() => {
   function syncEventTimeRow() {
     $("#e-time-row").classList.toggle("hidden", $("#e-allday").checked);
   }
+  function syncEventEndTimeRow() {
+    $("#e-end-time-row").classList.toggle("hidden", $("#e-end-unknown").checked);
+  }
   $("#e-allday").addEventListener("change", syncEventTimeRow);
+  $("#e-end-unknown").addEventListener("change", syncEventEndTimeRow);
+  // 開始時刻を変えたら、終了時刻もそれより後ろに保つ(所要時間30分をデフォルトの目安として維持)
+  $("#e-time").addEventListener("change", () => {
+    const start = $("#e-time").value;
+    const end = $("#e-end-time").value;
+    if (start && end && Store.timeToMinutes(end) <= Store.timeToMinutes(start)) {
+      $("#e-end-time").value = Store.addMinutesToTime(start, 30);
+    }
+  });
 
   $("#e-cancel").addEventListener("click", closeModal);
   $("#e-save").addEventListener("click", () => {
@@ -694,11 +737,21 @@ const UI = (() => {
     const date = $("#e-date").value;
     if (!date) { toast("日付を入力してください"); return; }
     const allDay = $("#e-allday").checked;
+    const endUnknown = !allDay && $("#e-end-unknown").checked;
+    const start = $("#e-time").value || "09:00";
+    let minutes = null;
+    if (!allDay && !endUnknown) {
+      const end = $("#e-end-time").value || Store.addMinutesToTime(start, 30);
+      minutes = Store.timeToMinutes(end) - Store.timeToMinutes(start);
+      if (minutes <= 0) minutes += 1440;
+      minutes = Math.max(5, minutes);
+    }
     const data = {
       title,
       date,
-      time: allDay ? null : ($("#e-time").value || "09:00"),
-      minutes: allDay ? null : Math.max(5, Number($("#e-minutes").value) || 30),
+      time: allDay ? null : start,
+      minutes,
+      endUnknown,
       memo: $("#e-memo").value.trim(),
       categoryId: selectedEventCategoryId,
     };
@@ -717,6 +770,13 @@ const UI = (() => {
     if (!confirm("この予定を削除しますか?")) return;
     Store.deleteEvent(editingEventId);
     toast("削除しました");
+    closeModal();
+    App.refresh();
+  });
+  $("#e-toggle-done").addEventListener("click", () => {
+    if (!editingEventId) return;
+    const ev = Store.toggleEventDone(editingEventId);
+    toast(ev.done ? "完了にしました" : "未完了に戻しました");
     closeModal();
     App.refresh();
   });

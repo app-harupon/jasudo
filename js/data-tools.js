@@ -131,6 +131,8 @@ const DataTools = (() => {
       .replace(/^[\s\-・※□▪◆●○*#>]+/, "")
       .replace(/^\d+[.\)、]\s*/, "")
       .replace(/^[(（][月火水木金土日][)）]\s*/, "")
+      // 日付を取り除いた残りに付いてくる「までに」「まで」「から」などの接続語を除去
+      .replace(/^(までに|まで|から|に|は)\s*/, "")
       .replace(/\s{2,}/g, " ")
       .trim();
   }
@@ -215,7 +217,8 @@ const DataTools = (() => {
           <input type="checkbox" class="ext-check" checked>
           <input type="text" class="ext-title" value="${UI.escapeHtml(c.title)}">
           <input type="date" class="ext-date" value="${c.date}">
-          <input type="time" class="ext-time" value="${c.time || ""}">
+          <input type="time" class="ext-time" value="${c.time || ""}" title="開始時刻">
+          <input type="time" class="ext-end-time" value="${c.endTime || ""}" title="終了時刻(任意)">
         `;
         list.appendChild(row);
       });
@@ -231,11 +234,20 @@ const DataTools = (() => {
       const title = row.querySelector(".ext-title").value.trim();
       const date = row.querySelector(".ext-date").value;
       const time = row.querySelector(".ext-time").value || null;
+      const endTime = row.querySelector(".ext-end-time").value || null;
       if (!title || !date) return;
+      // 開始・終了の両方が拾えていれば、その差を所要時間として使う
+      let minutes = null;
+      if (time && endTime) {
+        minutes = Store.timeToMinutes(endTime) - Store.timeToMinutes(time);
+        if (minutes <= 0) minutes += 1440;
+      }
       if (addType === "event") {
-        Store.addEvent({ title, date, time, minutes: time ? 30 : null });
+        Store.addEvent({ title, date, time, minutes: minutes || (time ? 30 : null), endUnknown: !!time && !endTime });
       } else {
-        const task = Store.addTask({ name: title, importance: "mid", durationType: "unknown" });
+        const task = minutes
+          ? Store.addTask({ name: title, importance: "mid", durationType: "fixed", totalMinutes: minutes })
+          : Store.addTask({ name: title, importance: "mid", durationType: "unknown" });
         Store.updateTask(task.id, { scheduledDate: date, scheduledTime: time });
       }
       count++;

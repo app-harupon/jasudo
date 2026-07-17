@@ -310,14 +310,18 @@ const Store = (() => {
    * カレンダー(月/週/日)にのみ表示し、やることリストのスコアリングには関与しない。
    */
   function addEvent(data) {
+    const hasTime = !!data.time;
+    const endUnknown = hasTime && !!data.endUnknown;
     const ev = {
       id: uid(),
       title: data.title,
       date: data.date,                     // "YYYY-MM-DD"(必須)
       time: data.time || null,             // "HH:MM" or null(終日予定)
-      minutes: data.time ? (data.minutes || 30) : null,
+      minutes: hasTime && !endUnknown ? (data.minutes || 30) : null,
+      endUnknown,                          // 終了時刻が未定の予定(時刻はあるが所要時間なし)
       categoryId: data.categoryId || null, // カテゴリ(セクション)のid or null(未分類)
       memo: data.memo || "",
+      done: false,
       createdAt: new Date().toISOString(),
     };
     events.push(ev);
@@ -334,6 +338,13 @@ const Store = (() => {
   function deleteEvent(id) {
     events = events.filter((x) => x.id !== id);
     saveEvents();
+  }
+  function toggleEventDone(id) {
+    const ev = events.find((x) => x.id === id);
+    if (!ev) return null;
+    ev.done = !ev.done;
+    saveEvents();
+    return ev;
   }
   function getEvent(id) { return events.find((x) => x.id === id) || null; }
   function getEvents() { return events.slice(); }
@@ -434,19 +445,18 @@ const Store = (() => {
    * 締切(緊急度) / 所要時間 / プロジェクトの段階 の3軸から提案。
    * ※段階の区分は暫定(汎用3段階)。最終決定は常にユーザーのワンタップ。
    */
-  function suggestImportance({ deadline, totalMinutes, stage }) {
-    let pts = 0;
+  function suggestImportanceDetail({ deadline, totalMinutes, stage }) {
     const u = urgencyOf(deadline);
-    if (u >= 4) pts += 2;
-    else if (u === 3) pts += 1;
+    const urgencyPts = u >= 4 ? 2 : u === 3 ? 1 : 0;
     const total = Number(totalMinutes) || 0;
-    if (total >= 120) pts += 2;
-    else if (total >= 60) pts += 1;
-    if (stage === "early") pts += 2;
-    else if (stage === "mid") pts += 1;
-    if (pts >= 4) return "high";
-    if (pts >= 2) return "mid";
-    return "low";
+    const durationPts = total >= 120 ? 2 : total >= 60 ? 1 : 0;
+    const stagePts = stage === "early" ? 2 : stage === "mid" ? 1 : 0;
+    const pts = urgencyPts + durationPts + stagePts;
+    const result = pts >= 4 ? "high" : pts >= 2 ? "mid" : "low";
+    return { result, pts, urgencyPts, durationPts, stagePts };
+  }
+  function suggestImportance(args) {
+    return suggestImportanceDetail(args).result;
   }
 
   /* ---------- セグメント分割 ---------- */
@@ -510,11 +520,11 @@ const Store = (() => {
     IMPORTANCE, URGENCY_LABELS, FOCUS_OPTIONS, BREAK_OPTIONS, STAGE_LABELS, WEEKDAY_LABELS,
     CATEGORY_COLORS,
     addTask, updateTask, deleteTask, getTask, getTasks, splitTask,
-    addEvent, updateEvent, deleteEvent, getEvent, getEvents,
+    addEvent, updateEvent, deleteEvent, toggleEventDone, getEvent, getEvents,
     addCategory, updateCategory, deleteCategory, getCategory, getCategories, matchesCategoryFilter,
     replaceTasks, replaceEvents, replaceCategories, replaceSettings,
     resolveDurationMinutes, durationLabel, setDuration, setEndTime, releaseOverdueTasks,
-    urgencyOf, scoreOf, scoreRatio, effectiveScore, suggestImportance,
+    urgencyOf, scoreOf, scoreRatio, effectiveScore, suggestImportance, suggestImportanceDetail,
     splitMinutes, allowedBreaks,
     dateKey, todayKey, addDays, startOfWeek, formatDeadline,
     timeToMinutes, minutesToTime, addMinutesToTime, timeOf,

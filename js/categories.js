@@ -23,6 +23,14 @@ const Categories = (() => {
       b.addEventListener("click", () => onChange(c.id));
       container.appendChild(b);
     });
+
+    // その場でカテゴリが無いことに気づいても、モーダルを閉じずに管理画面へ行ける導線
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "cat-add-inline";
+    addBtn.textContent = "+ 新規カテゴリ";
+    addBtn.addEventListener("click", () => Categories.openManageModal());
+    container.appendChild(addBtn);
   }
 
   // 一覧・詳細画面用の小さな色付きバッジ(該当カテゴリが無ければ空文字)
@@ -142,14 +150,17 @@ const Categories = (() => {
     });
   }
 
-  document.getElementById("menu-categories").addEventListener("click", () => {
+  function openManageModal() {
     UI.closeModal();
     renderCategoryList();
     selectedNewColor = Store.CATEGORY_COLORS[Store.getCategories().length % Store.CATEGORY_COLORS.length];
     refreshNewColorSwatches();
     $("#cat-new-name").value = "";
     UI.openModal(modalCategories);
-  });
+  }
+  Categories.openManageModal = openManageModal;
+
+  document.getElementById("menu-categories").addEventListener("click", openManageModal);
   $("#cat-close").addEventListener("click", () => UI.closeModal());
 
   $("#cat-add").addEventListener("click", () => {

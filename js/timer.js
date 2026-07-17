@@ -132,8 +132,34 @@ const Timer = (() => {
     syncSoundUI();
     if (preferTaskId && Store.getTask(preferTaskId)) {
       $("#t-total").value = Store.getTask(preferTaskId).totalMinutes;
+      $("#t-pomodoro-auto").checked = false; // 特定タスクを指名した場合は自動モードを解除
     }
     updatePreview();
+    syncPomodoroAutoUI();
+  }
+
+  /* ---------- ポモドーロ自動振り分けモード ---------- */
+  function syncPomodoroAutoUI() {
+    const on = $("#t-pomodoro-auto").checked;
+    $("#t-manual-fields").classList.toggle("hidden", on);
+    $("#t-pomodoro-note").classList.toggle("hidden", !on);
+  }
+  $("#t-pomodoro-auto").addEventListener("change", syncPomodoroAutoUI);
+
+  // 未完了タスクの中から優先度(重要度×緊急度)が一番高いものを選ぶ
+  function findTopTask() {
+    const today = new Date();
+    const todayKey = Store.todayKey();
+    return Store.getTasks()
+      .filter((t) => t.recurrence ? (Store.occursOnDate(t, today) && !Store.isDoneOn(t, todayKey)) : !t.done)
+      .sort((a, b) => Store.effectiveScore(b) - Store.effectiveScore(a))[0] || null;
+  }
+  // 現在のセッションに次のタスクを割り当てる(自動モード用)
+  function pickAutoTask() {
+    const top = findTopTask();
+    session.taskId = top ? top.id : null;
+    session.taskStartedAt = Date.now();
+    return session.taskId;
   }
 
   function renderFocusButtons() {
@@ -195,6 +221,10 @@ const Timer = (() => {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
+    if ($("#t-pomodoro-auto").checked) {
+      startAuto();
+      return;
+    }
     const total = Math.max(1, Number($("#t-total").value) || 30);
     start({
       taskId: $("#t-task").value || null,
@@ -228,6 +258,32 @@ const Timer = (() => {
       paused: false,
       remainMs: 0,
       memo: "",
+      taskStartedAt: Date.now(), // 実績をカレンダーに自動記録するための開始時刻
+    };
+    setupEl.classList.add("hidden");
+    runEl.classList.remove("hidden");
+    requestWakeLock();
+    enterPhase("overview");
+  }
+
+  // ポモドーロ自動振り分けモード:優先度1位のタスクを自動で選び、25分集中/5分休憩を繰り返す
+  function startAuto() {
+    const top = findTopTask();
+    if (!top) { UI.toast("やることリストにタスクがありません"); return; }
+    session = {
+      taskId: top.id,
+      focusMin: 25,
+      breakMin: 5,
+      segments: [25],
+      idx: 0,
+      phase: null,
+      endsAt: 0,
+      paused: false,
+      remainMs: 0,
+      memo: "",
+      taskStartedAt: Date.now(),
+      pomodoroAuto: true,
+      cycleCount: 0,
     };
     setupEl.classList.add("hidden");
     runEl.classList.remove("hidden");
@@ -262,6 +318,7 @@ const Timer = (() => {
   }
 
   function advance() {
+    if (session.pomodoroAuto) return advanceAuto();
     if (session.phase === "overview") {
       enterPhase("focus");
     } else if (session.phase === "focus") {
@@ -275,6 +332,25 @@ const Timer = (() => {
       }
     } else if (session.phase === "break") {
       session.idx++;
+      enterPhase("overview");
+    }
+  }
+
+  // 自動モードでは「このタスクの合計時間を使い切ったか」ではなく、
+  // 25分集中→休憩を淡々と繰り返し、完了はユーザーが「✔完了」を押した時点で判断する
+  function advanceAuto() {
+    if (session.phase === "overview") {
+      enterPhase("focus");
+    } else if (session.phase === "focus") {
+      session.cycleCount++;
+      session.breakMin = (session.cycleCount % 4 === 0) ? 20 : 5;
+      enterPhase("break");
+    } else if (session.phase === "break") {
+      if (!pickAutoTask()) {
+        endSession();
+        UI.toast("やることリストのタスクがすべて終わりました 🎉");
+        return;
+      }
       enterPhase("overview");
     }
   }
@@ -328,9 +404,20 @@ const Timer = (() => {
     if (!session) return;
     if (!confirm("このタスクを完了にしますか?")) return;
     if (session.taskId) Store.markDone(session.taskId, Store.todayKey());
+    logWorkedTime();
+    App.refresh();
+    if (session.pomodoroAuto) {
+      if (!pickAutoTask()) {
+        endSession();
+        UI.toast("やることリストのタスクがすべて終わりました 🎉");
+        return;
+      }
+      UI.toast("おつかれさま!次のタスクに移ります 🎉");
+      enterPhase("overview");
+      return;
+    }
     endSession();
     UI.toast("おつかれさま!タスク完了 🎉");
-    App.refresh();
   }
 
   // 現在のフェーズを延長する(タスクの合計所要時間の1/3。タスク未選択時は現セグメント長の1/3)
@@ -346,6 +433,24 @@ const Timer = (() => {
     persist();
     renderRun();
     UI.toast(`${extendMin}分延長しました`);
+  }
+
+  // 実際に作業していた時間帯(開始〜今)を、そのタスクの実績としてカレンダーに自動で残す
+  function logWorkedTime() {
+    if (!session || !session.taskId || !session.taskStartedAt) return;
+    const task = Store.getTask(session.taskId);
+    if (!task) return;
+    const start = new Date(session.taskStartedAt);
+    const elapsedMin = Math.max(1, Math.round((Date.now() - session.taskStartedAt) / 60000));
+    const time = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+    Store.addEvent({
+      title: `🕐 ${task.name}`,
+      date: Store.dateKey(start),
+      time,
+      minutes: elapsedMin,
+      categoryId: task.categoryId,
+      memo: "タイマーでの実績を自動記録しました",
+    });
   }
 
   function endSession() {
@@ -377,6 +482,7 @@ const Timer = (() => {
     if (session && session.taskId) {
       Store.markDone(session.taskId, Store.todayKey());
     }
+    logWorkedTime();
     endSession();
     UI.toast("おつかれさま!タスク完了 🎉");
     App.refresh();
@@ -426,23 +532,27 @@ const Timer = (() => {
     const task = session.taskId ? Store.getTask(session.taskId) : null;
     $("#run-task-name").textContent = task ? task.name : "フリー実行";
 
-    $("#run-sub").textContent =
-      `セグメント ${Math.min(session.idx + 1, session.segments.length)}/${session.segments.length}(${session.segments[session.idx]}分)`;
+    $("#run-sub").textContent = session.pomodoroAuto
+      ? `🍅 サイクル${session.cycleCount + 1}(次の休憩${(session.cycleCount + 1) % 4 === 0 ? "20" : "5"}分)`
+      : `セグメント ${Math.min(session.idx + 1, session.segments.length)}/${session.segments.length}(${session.segments[session.idx]}分)`;
 
     // 確認タイム中だけメモ入力を表示
     $("#run-overview-box").classList.toggle("hidden", session.phase !== "overview");
     $("#run-memo-view").textContent =
       session.phase === "focus" && session.memo ? `▶ ${session.memo}` : "";
 
-    // セグメントドット
+    // セグメントドット(自動モードは1タスクの固定分割ではないため非表示)
     const dots = $("#run-dots");
     dots.innerHTML = "";
-    session.segments.forEach((m, i) => {
-      const d = document.createElement("div");
-      d.className = "dot" + (i < session.idx ? " done" : i === session.idx ? " now" : "");
-      d.title = `${m}分`;
-      dots.appendChild(d);
-    });
+    dots.classList.toggle("hidden", !!session.pomodoroAuto);
+    if (!session.pomodoroAuto) {
+      session.segments.forEach((m, i) => {
+        const d = document.createElement("div");
+        d.className = "dot" + (i < session.idx ? " done" : i === session.idx ? " now" : "");
+        d.title = `${m}分`;
+        dots.appendChild(d);
+      });
+    }
 
     $("#run-pause").textContent = session.paused ? "▶ 再開" : "⏸ 一時停止";
     // 完了確認モーダル表示中は、下の操作ボタンは無効化しておく(check-done/check-notyetで進める)
@@ -465,12 +575,13 @@ const Timer = (() => {
     $("#ring-fg").style.strokeDashoffset = String(RING_LEN * (1 - ratio));
   }
 
-  /* ---------- 確認メモ(16文字制限・都度上書き) ---------- */
+  /* ---------- 確認メモ(24文字制限・都度上書き) ---------- */
+  const MEMO_MAX = 24;
   function updateMemoCount() {
     const v = $("#run-memo").value;
     const el = $("#memo-count");
-    el.textContent = `${v.length}/16`;
-    el.classList.toggle("limit", v.length >= 16);
+    el.textContent = `${v.length}/${MEMO_MAX}`;
+    el.classList.toggle("limit", v.length >= MEMO_MAX);
   }
   $("#run-memo").addEventListener("input", () => {
     if (!session) return;
@@ -485,6 +596,11 @@ const Timer = (() => {
   $("#run-extend").addEventListener("click", extend);
   $("#run-complete").addEventListener("click", completeNow);
   $("#run-abort").addEventListener("click", abort);
+  // 確認(1分の待ち時間)を待たず、すぐに集中フェーズへ進みたい人向け
+  $("#run-confirm-done").addEventListener("click", () => {
+    if (!session || session.phase !== "overview") return;
+    advance();
+  });
 
   /* ============================================================
    * 復元(リロード対応)

@@ -91,19 +91,27 @@
     <div id="timer-setup" class="card setup-card">
       <h2>セグメントタイマー</h2>
 
-      <label class="field-label">タスク</label>
-      <select id="t-task"></select>
+      <div class="toggle-row">
+        <span>🍅 ポモドーロ自動振り分けモード</span>
+        <label class="switch"><input id="t-pomodoro-auto" type="checkbox"><span class="slider"></span></label>
+      </div>
+      <p id="t-pomodoro-note" class="note hidden">やることリストの優先度が一番高いタスクを自動で選び、25分集中→5分休憩を繰り返します(4回に1回の休憩は20分)。完了したら自動で次のタスクに移ります。</p>
 
-      <label class="field-label">集中時間(基準)</label>
-      <div class="seg" id="t-focus"></div>
+      <div id="t-manual-fields">
+        <label class="field-label">タスク</label>
+        <select id="t-task"></select>
 
-      <label class="field-label">休憩時間 <span class="sub">(集中時間の1/3まで)</span></label>
-      <div class="seg" id="t-break"></div>
+        <label class="field-label">集中時間(基準)</label>
+        <div class="seg" id="t-focus"></div>
 
-      <label class="field-label">合計所要時間(分)</label>
-      <input id="t-total" type="number" min="1" step="5" value="30">
+        <label class="field-label">休憩時間 <span class="sub">(集中時間の1/3まで)</span></label>
+        <div class="seg" id="t-break"></div>
 
-      <div id="t-preview" class="preview"></div>
+        <label class="field-label">合計所要時間(分)</label>
+        <input id="t-total" type="number" min="1" step="5" value="30">
+
+        <div id="t-preview" class="preview"></div>
+      </div>
 
       <div class="toggle-row">
         <span>通知音</span>
@@ -133,8 +141,9 @@
 
       <div id="run-overview-box" class="overview-box hidden">
         <label class="field-label">この時間でやる範囲(一言で)</label>
-        <input id="run-memo" maxlength="16" placeholder="例: 見積もり作成" autocomplete="off">
-        <div id="memo-count" class="memo-count">0/16</div>
+        <input id="run-memo" maxlength="24" placeholder="例: 見積もり作成" autocomplete="off">
+        <div id="memo-count" class="memo-count">0/24</div>
+        <button id="run-confirm-done" class="primary big">✓ 確認完了</button>
       </div>
 
       <div id="run-dots" class="dots"></div>
@@ -152,6 +161,7 @@
   <!-- ========== 完了したタスク ========== -->
   <section id="view-done" class="view">
     <h2 class="list-title">完了したタスク</h2>
+    <div id="done-summary" class="done-summary hidden"></div>
     <div id="done-list" class="todo-list"></div>
     <p class="hint">完了したタスクはカレンダー上にも取り消し線付きで残ります。</p>
   </section>
@@ -242,10 +252,18 @@
   </div>
 
   <div id="e-time-row">
-    <label class="field-label">時刻</label>
+    <label class="field-label">開始時刻</label>
     <input id="e-time" type="time" step="300">
-    <label class="field-label">所要時間(分)</label>
-    <input id="e-minutes" type="number" min="5" step="5" value="30">
+
+    <div class="toggle-row">
+      <span>終了時刻は未定</span>
+      <label class="switch"><input id="e-end-unknown" type="checkbox"><span class="slider"></span></label>
+    </div>
+
+    <div id="e-end-time-row">
+      <label class="field-label">終了時刻</label>
+      <input id="e-end-time" type="time" step="300">
+    </div>
   </div>
 
   <label class="field-label">メモ <span class="sub">(任意)</span></label>
@@ -253,6 +271,7 @@
 
   <div class="modal-actions">
     <button id="e-delete" class="danger-ghost push-left hidden">削除</button>
+    <button id="e-toggle-done" class="ghost-btn hidden">完了にする</button>
     <button id="e-cancel" class="ghost-btn">キャンセル</button>
     <button id="e-save" class="primary">保存</button>
   </div>
@@ -277,10 +296,12 @@
   <p class="note">タスク・予定を「仕事」「個人」などに分類して、色で見分けたり絞り込んだりできます。</p>
   <div id="cat-list" class="cat-list"></div>
 
-  <label class="field-label">新しいカテゴリ</label>
-  <input id="cat-new-name" maxlength="20" placeholder="例: 仕事">
-  <div class="color-swatch-row" id="cat-new-color"></div>
-  <button id="cat-add" class="primary big">追加する</button>
+  <div class="cat-new-box">
+    <label class="field-label">＋ 新しいカテゴリを追加</label>
+    <input id="cat-new-name" maxlength="20" placeholder="例: 仕事">
+    <div class="color-swatch-row" id="cat-new-color"></div>
+    <button id="cat-add" class="primary big">追加する</button>
+  </div>
 
   <div class="modal-actions">
     <button id="cat-close" class="ghost-btn">閉じる</button>
@@ -379,18 +400,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
-<script src="js/store.js?v=21"></script>
-<script src="js/ui.js?v=21"></script>
-<script src="js/categories.js?v=21"></script>
-<script src="js/matrix.js?v=21"></script>
-<script src="js/calendar.js?v=21"></script>
-<script src="js/touch-drag.js?v=21"></script>
-<script src="js/timer.js?v=21"></script>
-<script src="js/done.js?v=21"></script>
-<script src="js/tutorial.js?v=21"></script>
-<script src="js/data-tools.js?v=21"></script>
-<script src="js/app.js?v=21"></script>
-<script src="js/firebase-config.js?v=21"></script>
-<script src="js/sync.js?v=21"></script>
+<script src="js/store.js?v=22"></script>
+<script src="js/ui.js?v=22"></script>
+<script src="js/categories.js?v=22"></script>
+<script src="js/matrix.js?v=22"></script>
+<script src="js/calendar.js?v=22"></script>
+<script src="js/touch-drag.js?v=22"></script>
+<script src="js/timer.js?v=22"></script>
+<script src="js/done.js?v=22"></script>
+<script src="js/tutorial.js?v=22"></script>
+<script src="js/data-tools.js?v=22"></script>
+<script src="js/app.js?v=22"></script>
+<script src="js/firebase-config.js?v=22"></script>
+<script src="js/sync.js?v=22"></script>
 </body>
 </html>

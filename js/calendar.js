@@ -172,6 +172,12 @@ const Calendar = (() => {
         App.refresh();
       });
 
+      // マスの空いている場所をタップ → その日を初期値にした予定追加フォームを開く
+      cell.addEventListener("click", (e) => {
+        if (e.target !== cell) return; // 日付・チップなど子要素のクリックはそれぞれの処理に任せる
+        UI.openEventForm(null, key);
+      });
+
       grid.appendChild(cell);
     }
   }
@@ -328,7 +334,10 @@ const Calendar = (() => {
       .filter((t) => !t.done && !t.recurrence && t.scheduledDate && t.scheduledDate <= tKey);
     const recurToday = Store.getTasks()
       .filter((t) => Store.occursOnDate(t, today) && !Store.isDoneOn(t, tKey));
-    const list = scheduled.concat(recurToday)
+    // 実行日を設定していなくても、締切が今日以前(=緊急度「今日中」)なら見落とさないよう含める
+    const dueToday = Store.getTasks()
+      .filter((t) => !t.done && !t.recurrence && !t.scheduledDate && t.deadline && Store.urgencyOf(t.deadline) >= 5);
+    const list = scheduled.concat(recurToday).concat(dueToday)
       .filter((t) => Store.matchesCategoryFilter(t.categoryId))
       .sort((a, b) => Store.effectiveScore(b) - Store.effectiveScore(a));
 
@@ -337,11 +346,10 @@ const Calendar = (() => {
       return;
     }
     list.forEach((t, i) => {
-      todayList.appendChild(UI.makeListItem(t, {
-        rank: i + 1,
-        tag: (!t.recurrence && t.scheduledDate < tKey) ? "持ち越し" : null,
-        dateCtx: tKey,
-      }));
+      let tag = null;
+      if (!t.recurrence && t.scheduledDate && t.scheduledDate < tKey) tag = "持ち越し";
+      else if (!t.recurrence && !t.scheduledDate && t.deadline) tag = "締切";
+      todayList.appendChild(UI.makeListItem(t, { rank: i + 1, tag, dateCtx: tKey }));
     });
   }
 
