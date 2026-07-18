@@ -309,28 +309,70 @@ const Store = (() => {
    * タスクと違い、重要度・緊急度・タイマー実行は持たない「ただの予定」。
    * カレンダー(月/週/日)にのみ表示し、やることリストのスコアリングには関与しない。
    */
-  function addEvent(data) {
+  const EVENT_MAX_SPAN_DAYS = 60; // 誤入力で極端に長い範囲になるのを防ぐ安全弁
+
+  // 予定フォームの入力値から保存用フィールド一式を組み立てる(追加・編集共通)
+  function computeEventFields(data) {
     const hasTime = !!data.time;
     const endUnknown = hasTime && !!data.endUnknown;
-    const ev = {
-      id: uid(),
+    let endDate = (data.endDate && data.endDate >= data.date) ? data.endDate : data.date;
+    const spanDays = Math.round((new Date(endDate) - new Date(data.date)) / 86400000);
+    if (spanDays > EVENT_MAX_SPAN_DAYS) endDate = dateKey(addDays(new Date(data.date), EVENT_MAX_SPAN_DAYS));
+    const endTime = hasTime && !endUnknown ? (data.endTime || null) : null;
+    let minutes = null;
+    if (hasTime && !endUnknown && endTime) {
+      const startDt = new Date(`${data.date}T${data.time}:00`);
+      const endDt = new Date(`${endDate}T${endTime}:00`);
+      minutes = Math.max(5, Math.round((endDt - startDt) / 60000));
+    }
+    return {
       title: data.title,
-      date: data.date,                     // "YYYY-MM-DD"(必須)
+      date: data.date,                     // "YYYY-MM-DD"(必須・開始日)
+      endDate,                             // "YYYY-MM-DD"(終了日。単日ならdateと同じ)
       time: data.time || null,             // "HH:MM" or null(終日予定)
-      minutes: hasTime && !endUnknown ? (data.minutes || 30) : null,
+      endTime,                             // "HH:MM" or null(終日/終了時刻未定)
+      minutes,                             // 参考用の合計所要時間(分)
       endUnknown,                          // 終了時刻が未定の予定(時刻はあるが所要時間なし)
       categoryId: data.categoryId || null, // カテゴリ(セクション)のid or null(未分類)
       memo: data.memo || "",
-      done: false,
-      createdAt: new Date().toISOString(),
     };
+  }
+
+  function addEvent(data) {
+    const ev = Object.assign(
+      { id: uid(), done: false, createdAt: new Date().toISOString() },
+      computeEventFields(data)
+    );
     events.push(ev);
     saveEvents();
     return ev;
   }
+  // 予定フォームでの編集保存用:日時関連フィールドを丸ごと再計算する
+  function updateEventFull(id, data) {
+    const ev = events.find((x) => x.id === id);
+    if (!ev) return null;
+    Object.assign(ev, computeEventFields(data));
+    saveEvents();
+    return ev;
+  }
+  // ドラッグ移動やチェック切り替えなど、指定フィールドだけを部分的に書き換える
   function updateEvent(id, patch) {
     const ev = events.find((x) => x.id === id);
     if (!ev) return null;
+    Object.assign(ev, patch);
+    saveEvents();
+    return ev;
+  }
+  // ドラッグ&ドロップでの移動:複数日にまたがる予定は終了日も同じ日数だけ一緒にずらす
+  function moveEvent(id, newDate, newTime) {
+    const ev = events.find((x) => x.id === id);
+    if (!ev) return null;
+    const dayDelta = Math.round((new Date(newDate) - new Date(ev.date)) / 86400000);
+    const patch = { date: newDate };
+    patch.endDate = (ev.endDate && ev.endDate !== ev.date)
+      ? dateKey(addDays(new Date(ev.endDate), dayDelta))
+      : newDate;
+    if (newTime !== undefined) patch.time = newTime;
     Object.assign(ev, patch);
     saveEvents();
     return ev;
@@ -348,6 +390,10 @@ const Store = (() => {
   }
   function getEvent(id) { return events.find((x) => x.id === id) || null; }
   function getEvents() { return events.slice(); }
+  // 指定した日付(YYYY-MM-DD)がその予定の開始日〜終了日の範囲に含まれるか
+  function eventOccursOnDate(ev, dateKeyStr) {
+    return dateKeyStr >= ev.date && dateKeyStr <= (ev.endDate || ev.date);
+  }
 
   /* ---------- カテゴリ(セクション)CRUD ----------
    * タスク・予定を「仕事」「個人」などに分類し、色で見分けられるようにする。
@@ -520,7 +566,7 @@ const Store = (() => {
     IMPORTANCE, URGENCY_LABELS, FOCUS_OPTIONS, BREAK_OPTIONS, STAGE_LABELS, WEEKDAY_LABELS,
     CATEGORY_COLORS,
     addTask, updateTask, deleteTask, getTask, getTasks, splitTask,
-    addEvent, updateEvent, deleteEvent, toggleEventDone, getEvent, getEvents,
+    addEvent, updateEvent, updateEventFull, moveEvent, deleteEvent, toggleEventDone, getEvent, getEvents, eventOccursOnDate,
     addCategory, updateCategory, deleteCategory, getCategory, getCategories, matchesCategoryFilter,
     replaceTasks, replaceEvents, replaceCategories, replaceSettings,
     resolveDurationMinutes, durationLabel, setDuration, setEndTime, releaseOverdueTasks,

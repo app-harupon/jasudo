@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pon-todo-cache-v9';
+const CACHE_NAME = 'pon-todo-cache-v10';
 const ASSETS = [
   './',
   './index.html',

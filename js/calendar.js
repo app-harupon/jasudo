@@ -115,7 +115,14 @@ const Calendar = (() => {
     const eventsByDate = {};
     Store.getEvents().forEach((ev) => {
       if (!Store.matchesCategoryFilter(ev.categoryId)) return;
-      (eventsByDate[ev.date] = eventsByDate[ev.date] || []).push(ev);
+      // 複数日にまたがる予定は、開始日〜終了日のすべてのマスに表示する
+      let d = new Date(ev.date);
+      const end = new Date(ev.endDate || ev.date);
+      while (d <= end) {
+        const k = Store.dateKey(d);
+        (eventsByDate[k] = eventsByDate[k] || []).push(ev);
+        d = Store.addDays(d, 1);
+      }
     });
 
     const firstWd = new Date(y, m, 1).getDay();
@@ -155,7 +162,7 @@ const Calendar = (() => {
       const eventList = eventsByDate[key] || [];
       const MAX_SHOW = 3;
       taskList.slice(0, MAX_SHOW).forEach((t) => cell.appendChild(UI.makeChip(t, { showTime: true, dateCtx: key })));
-      eventList.slice(0, Math.max(0, MAX_SHOW - taskList.length)).forEach((ev) => cell.appendChild(UI.makeEventChip(ev)));
+      eventList.slice(0, Math.max(0, MAX_SHOW - taskList.length)).forEach((ev) => cell.appendChild(UI.makeEventChip(ev, { dayKey: key })));
       const shownCount = Math.min(taskList.length, MAX_SHOW) + Math.min(eventList.length, Math.max(0, MAX_SHOW - taskList.length));
       const totalCount = taskList.length + eventList.length;
       if (totalCount > shownCount) {
@@ -166,7 +173,7 @@ const Calendar = (() => {
       }
 
       makeDroppable(cell, (drag) => {
-        if (drag.type === "e") Store.updateEvent(drag.id, { date: key });
+        if (drag.type === "e") Store.moveEvent(drag.id, key);
         else Store.updateTask(drag.id, { scheduledDate: key });
         UI.toast(`${m + 1}/${dayNum} に設定しました`);
         App.refresh();
@@ -245,8 +252,26 @@ const Calendar = (() => {
     const eventsByDate = {};
     Store.getEvents().forEach((ev) => {
       if (!Store.matchesCategoryFilter(ev.categoryId)) return;
-      (eventsByDate[ev.date] = eventsByDate[ev.date] || []).push(ev);
+      let d = new Date(ev.date);
+      const end = new Date(ev.endDate || ev.date);
+      while (d <= end) {
+        const k = Store.dateKey(d);
+        (eventsByDate[k] = eventsByDate[k] || []).push(ev);
+        d = Store.addDays(d, 1);
+      }
     });
+
+    // 予定がその日に占める分数(複数日にまたがる場合、最初の日は開始時刻〜24時、最後の日は0時〜終了時刻)
+    function eventDaySpanMinutes(ev, key) {
+      const isFirst = key === ev.date;
+      const isLast = key === (ev.endDate || ev.date);
+      const startMin = isFirst ? Store.timeToMinutes(ev.time) : 0;
+      let endMin;
+      if (!isLast) endMin = 24 * 60;
+      else if (ev.endUnknown || !ev.endTime) endMin = startMin + (ev.minutes || 30);
+      else endMin = Store.timeToMinutes(ev.endTime);
+      return { startMin, endMin, isFirst, isLast };
+    }
 
     days.forEach((d) => {
       const key = Store.dateKey(d);
@@ -264,13 +289,13 @@ const Calendar = (() => {
         .filter((t) => Store.occursOnDate(t, d) && Store.matchesCategoryFilter(t.categoryId));
       const dayEvents = eventsByDate[key] || [];
 
-      // 時刻未設定タスク・終日予定は上部にまとめて表示(ドラッグでブロック化できる)
+      // 時刻未設定タスク・終日予定(複数日予定の中日も含む)は上部にまとめて表示
       const untimedTasks = dayTasks.filter((t) => !t.scheduledTime);
-      const alldayEvents = dayEvents.filter((ev) => !ev.time);
+      const alldayEvents = dayEvents.filter((ev) => !ev.time || (key !== ev.date && key !== (ev.endDate || ev.date)));
       if (untimedTasks.length || alldayEvents.length) {
         const bar = el("div", "tg-untimed");
         untimedTasks.forEach((t) => bar.appendChild(UI.makeChip(t)));
-        alldayEvents.forEach((ev) => bar.appendChild(UI.makeEventChip(ev)));
+        alldayEvents.forEach((ev) => bar.appendChild(UI.makeEventChip(ev, { dayKey: key })));
         track.appendChild(bar);
       }
 
@@ -283,12 +308,12 @@ const Calendar = (() => {
         track.appendChild(UI.makeTimeBlock(t, { top, height, dateCtx: key }));
       });
 
-      // 時刻設定済みの予定も同様にブロック配置
-      dayEvents.filter((ev) => ev.time).forEach((ev) => {
-        const startMin = Store.timeToMinutes(ev.time) - START_HOUR * 60;
-        const top = (startMin / 60) * ROW_H;
-        const height = Math.max(18, (ev.minutes / 60) * ROW_H - 2);
-        track.appendChild(UI.makeEventBlock(ev, { top, height }));
+      // 時刻設定済みの予定も同様にブロック配置(複数日予定は開始日・終了日の分だけをその日の枠として配置)
+      dayEvents.filter((ev) => ev.time && (key === ev.date || key === (ev.endDate || ev.date))).forEach((ev) => {
+        const span = eventDaySpanMinutes(ev, key);
+        const top = ((span.startMin - START_HOUR * 60) / 60) * ROW_H;
+        const height = Math.max(18, ((span.endMin - span.startMin) / 60) * ROW_H - 2);
+        track.appendChild(UI.makeEventBlock(ev, { top, height, dayIsFirst: span.isFirst, dayIsLast: span.isLast }));
       });
 
       makeDroppable(track, (drag, e) => {
@@ -300,7 +325,7 @@ const Calendar = (() => {
           Math.min(END_HOUR * 60 - 30, Math.round(rawMin / 30) * 30)
         );
         const snappedTime = Store.minutesToTime(snapped);
-        if (drag.type === "e") Store.updateEvent(drag.id, { date: key, time: snappedTime });
+        if (drag.type === "e") Store.moveEvent(drag.id, key, snappedTime);
         else Store.updateTask(drag.id, { scheduledDate: key, scheduledTime: snappedTime });
         UI.toast(`${snappedTime} に設定しました`);
         App.refresh();

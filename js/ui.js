@@ -612,13 +612,17 @@ const UI = (() => {
   }
 
   /* ---------- 共通:予定(イベント)チップ生成(カレンダー用・小さい表示) ---------- */
-  function makeEventChip(ev) {
+  function makeEventChip(ev, { dayKey = null } = {}) {
     const chip = document.createElement("div");
+    const isMultiDay = ev.endDate && ev.endDate !== ev.date;
+    const isFirstDay = !dayKey || dayKey === ev.date;
     chip.className = "chip event" + (ev.done ? " done" : "");
     chip.draggable = !ev.done;
     chip.dataset.id = ev.id;
     if (ev.categoryId) chip.style.cssText += Categories.borderStyle(ev.categoryId);
-    const label = (ev.time ? `${ev.time} ` : "") + `📅 ${ev.title}`;
+    const timePrefix = ev.time && isFirstDay ? `${ev.time} ` : "";
+    const rangeSuffix = isMultiDay ? `(${formatMonthDay(ev.date)}〜${formatMonthDay(ev.endDate)})` : "";
+    const label = `${timePrefix}📅 ${ev.title}${rangeSuffix}`;
     chip.title = label;
 
     const check = document.createElement("span");
@@ -645,7 +649,7 @@ const UI = (() => {
   }
 
   /* ---------- 共通:予定(イベント)の週/日ビュー時間ブロック ---------- */
-  function makeEventBlock(ev, { top, height } = {}) {
+  function makeEventBlock(ev, { top, height, dayIsFirst = true, dayIsLast = true } = {}) {
     const block = document.createElement("div");
     block.className = "tg-block event" + (ev.done ? " done" : "");
     block.style.top = `${top}px`;
@@ -653,12 +657,13 @@ const UI = (() => {
     if (ev.categoryId) block.style.cssText += Categories.borderStyle(ev.categoryId);
     block.draggable = !ev.done;
     block.dataset.id = ev.id;
-    const end = ev.endUnknown ? "未定" : Store.addMinutesToTime(ev.time, ev.minutes);
+    const startLabel = dayIsFirst ? ev.time : "…";
+    const endLabel = !dayIsLast ? "…" : (ev.endUnknown ? "未定" : (ev.endTime || Store.addMinutesToTime(ev.time, ev.minutes || 30)));
     block.innerHTML = `
       <div class="tg-block-name"><span class="chip-check">${ev.done ? "✅" : "☐"}</span>📅 ${escapeHtml(ev.title)}</div>
-      <div class="tg-block-time">${ev.time}〜${end}</div>
+      <div class="tg-block-time">${startLabel}〜${endLabel}</div>
     `;
-    block.title = `${ev.title}(${ev.time}〜${end})`;
+    block.title = `${ev.title}(${ev.time}〜${ev.endUnknown ? "未定" : (ev.endTime || "")})`;
     block.querySelector(".chip-check").addEventListener("click", (e) => {
       e.stopPropagation();
       Store.toggleEventDone(ev.id);
@@ -694,11 +699,12 @@ const UI = (() => {
     $("#event-form-title").textContent = ev ? "予定を編集" : "予定を追加";
     $("#e-title").value = ev ? ev.title : "";
     $("#e-date").value = ev ? ev.date : (presetDate || Store.todayKey());
+    $("#e-end-date").value = ev ? (ev.endDate || ev.date) : $("#e-date").value;
     $("#e-allday").checked = ev ? !ev.time : false;
     $("#e-time").value = ev && ev.time ? ev.time : "09:00";
     $("#e-end-unknown").checked = ev ? !!ev.endUnknown : false;
-    $("#e-end-time").value = ev && ev.time && !ev.endUnknown
-      ? Store.addMinutesToTime(ev.time, ev.minutes || 30)
+    $("#e-end-time").value = ev && ev.time && !ev.endUnknown && ev.endTime
+      ? ev.endTime
       : Store.addMinutesToTime($("#e-time").value, 30);
     $("#e-memo").value = ev ? ev.memo : "";
     selectedEventCategoryId = ev ? (ev.categoryId || null) : null;
@@ -721,8 +727,13 @@ const UI = (() => {
   }
   $("#e-allday").addEventListener("change", syncEventTimeRow);
   $("#e-end-unknown").addEventListener("change", syncEventEndTimeRow);
-  // 開始時刻を変えたら、終了時刻もそれより後ろに保つ(所要時間30分をデフォルトの目安として維持)
+  // 開始日を終了日より後ろにしたら、終了日も一緒に繰り上げる(範囲が逆転しないように)
+  $("#e-date").addEventListener("change", () => {
+    if ($("#e-end-date").value < $("#e-date").value) $("#e-end-date").value = $("#e-date").value;
+  });
+  // 開始時刻を変えたら、終了時刻もそれより後ろに保つ(所要時間30分をデフォルトの目安として維持・複数日の場合は対象外)
   $("#e-time").addEventListener("change", () => {
+    if ($("#e-end-date").value !== $("#e-date").value) return;
     const start = $("#e-time").value;
     const end = $("#e-end-time").value;
     if (start && end && Store.timeToMinutes(end) <= Store.timeToMinutes(start)) {
@@ -737,26 +748,18 @@ const UI = (() => {
     const date = $("#e-date").value;
     if (!date) { toast("日付を入力してください"); return; }
     const allDay = $("#e-allday").checked;
-    const endUnknown = !allDay && $("#e-end-unknown").checked;
-    const start = $("#e-time").value || "09:00";
-    let minutes = null;
-    if (!allDay && !endUnknown) {
-      const end = $("#e-end-time").value || Store.addMinutesToTime(start, 30);
-      minutes = Store.timeToMinutes(end) - Store.timeToMinutes(start);
-      if (minutes <= 0) minutes += 1440;
-      minutes = Math.max(5, minutes);
-    }
     const data = {
       title,
       date,
-      time: allDay ? null : start,
-      minutes,
-      endUnknown,
+      endDate: $("#e-end-date").value || date,
+      time: allDay ? null : ($("#e-time").value || "09:00"),
+      endTime: $("#e-end-time").value || null,
+      endUnknown: !allDay && $("#e-end-unknown").checked,
       memo: $("#e-memo").value.trim(),
       categoryId: selectedEventCategoryId,
     };
     if (editingEventId) {
-      Store.updateEvent(editingEventId, data);
+      Store.updateEventFull(editingEventId, data);
       toast("更新しました");
     } else {
       Store.addEvent(data);
@@ -780,6 +783,12 @@ const UI = (() => {
     closeModal();
     App.refresh();
   });
+
+  // "YYYY-MM-DD" → "M/D"(複数日にまたがる予定の範囲表示用)
+  function formatMonthDay(dateKeyStr) {
+    const [, m, d] = dateKeyStr.split("-");
+    return `${Number(m)}/${Number(d)}`;
+  }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({
