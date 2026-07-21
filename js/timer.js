@@ -9,6 +9,13 @@ const Timer = (() => {
 
   const setupEl = $("#timer-setup");
   const runEl = $("#timer-run");
+  const fabAdd = $("#fab-add");
+
+  // 実行中は右下の「＋」を隠す(確認完了ボタンなどでカードが縦に伸びる場面があり、
+  // 固定表示のFABが操作ボタンと重なってしまうため。集中中に新規追加を誘う必要もない)
+  function setFabVisible(show) {
+    fabAdd.classList.toggle("hidden", !show);
+  }
 
   let session = null;   // { taskId, focusMin, breakMin, segments[], idx, phase, endsAt, paused, remainMs, memo }
   let interval = null;
@@ -106,6 +113,7 @@ const Timer = (() => {
    * セットアップ画面
    * ============================================================ */
   function renderSetup(preferTaskId = null) {
+    setFabVisible(true);
     // タスク選択肢(未完了・優先度順)
     const sel = $("#t-task");
     const current = preferTaskId !== null ? preferTaskId : sel.value;
@@ -262,6 +270,7 @@ const Timer = (() => {
     };
     setupEl.classList.add("hidden");
     runEl.classList.remove("hidden");
+    setFabVisible(false);
     requestWakeLock();
     enterPhase("overview");
   }
@@ -287,6 +296,7 @@ const Timer = (() => {
     };
     setupEl.classList.add("hidden");
     runEl.classList.remove("hidden");
+    setFabVisible(false);
     requestWakeLock();
     enterPhase("overview");
   }
@@ -620,6 +630,7 @@ const Timer = (() => {
     session = snap;
     setupEl.classList.add("hidden");
     runEl.classList.remove("hidden");
+    setFabVisible(false);
     if (session.phase === "check") {
       phaseTotalMs = 0;
       renderRun();
